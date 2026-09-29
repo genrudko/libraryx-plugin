@@ -51,6 +51,7 @@ function Model.bookRecord(path, attrs, props, read_state, now)
         filesize = tonumber(attrs.size) or 0,
         filemtime = tonumber(attrs.modification) or 0,
         scanned_at = assert(now),
+        scan_token = read_state.scan_token,
         title = title,
         sort_title = Model.normalizeSortText(title),
         language = trim(props.language),

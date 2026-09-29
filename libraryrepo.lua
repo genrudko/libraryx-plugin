@@ -19,17 +19,18 @@ function LibraryRepo:upsertBook(book)
     local ok, err = pcall(function()
         local stmt = db:prepare([[
             INSERT INTO books (
-                path, directory, filename, filesize, filemtime, scanned_at,
+                path, directory, filename, filesize, filemtime, scanned_at, scan_token,
                 title, sort_title, language, series, series_index, description,
                 format, active, last_read_at, percent_finished, reading_status
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(path) DO UPDATE SET
                 directory=excluded.directory,
                 filename=excluded.filename,
                 filesize=excluded.filesize,
                 filemtime=excluded.filemtime,
                 scanned_at=excluded.scanned_at,
+                scan_token=excluded.scan_token,
                 title=excluded.title,
                 sort_title=excluded.sort_title,
                 language=excluded.language,
@@ -44,8 +45,8 @@ function LibraryRepo:upsertBook(book)
         ]])
         step_done(stmt,
             book.path, book.directory, book.filename, book.filesize, book.filemtime,
-            book.scanned_at, book.title, book.sort_title, book.language, book.series,
-            book.series_index, book.description, book.format, book.active,
+            book.scanned_at, book.scan_token, book.title, book.sort_title, book.language,
+            book.series, book.series_index, book.description, book.format, book.active,
             book.last_read_at, book.percent_finished, book.reading_status)
 
         local id_stmt = db:prepare("SELECT id FROM books WHERE path = ?;")
@@ -86,6 +87,81 @@ function LibraryRepo:upsertBook(book)
             assert(row and row[1], "genre id missing")
             step_done(link_genre, book_id, row[1])
         end
+    end)
+    if ok then
+        db:exec("COMMIT;")
+    else
+        pcall(function() db:exec("ROLLBACK;") end)
+        error(err)
+    end
+end
+
+
+function LibraryRepo:startScan(root_path, started_at)
+    local db = self.storage:open()
+    db:exec("BEGIN IMMEDIATE;")
+    local ok, token_or_err = pcall(function()
+        local current = tonumber(db:rowexec(
+            "SELECT value FROM meta WHERE key='scan_generation';")) or 0
+        local token = current + 1
+        local gen_stmt = db:prepare([[
+            INSERT INTO meta(key, value) VALUES ('scan_generation', ?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value;
+        ]])
+        step_done(gen_stmt, tostring(token))
+        local root_stmt = db:prepare([[
+            INSERT INTO scan_roots(path, enabled, last_scan_at)
+            VALUES (?, 1, ?)
+            ON CONFLICT(path) DO UPDATE SET enabled=1, last_scan_at=excluded.last_scan_at;
+        ]])
+        step_done(root_stmt, root_path, started_at)
+        return token
+    end)
+    if ok then
+        db:exec("COMMIT;")
+        return token_or_err
+    end
+    pcall(function() db:exec("ROLLBACK;") end)
+    error(token_or_err)
+end
+
+function LibraryRepo:touchUnchanged(path, attrs, scan_token, scanned_at, read_state)
+    local db = self.storage:open()
+    local stmt = db:prepare([[
+        UPDATE books
+        SET filesize=?, filemtime=?, scanned_at=?, scan_token=?, active=1,
+            last_read_at=?, percent_finished=?, reading_status=?
+        WHERE path=?;
+    ]])
+    step_done(stmt,
+        tonumber(attrs.size) or 0,
+        tonumber(attrs.modification) or 0,
+        scanned_at,
+        scan_token,
+        read_state.last_read_at,
+        read_state.percent_finished,
+        read_state.status,
+        path)
+end
+
+function LibraryRepo:finishScan(root_path, scan_token, finished_at)
+    local db = self.storage:open()
+    local prefix = root_path
+    if prefix:sub(-1) ~= "/" then prefix = prefix .. "/" end
+    db:exec("BEGIN IMMEDIATE;")
+    local ok, err = pcall(function()
+        local deactivate = db:prepare([[
+            UPDATE books
+            SET active=0
+            WHERE active=1
+              AND substr(path, 1, ?) = ?
+              AND (scan_token IS NULL OR scan_token <> ?);
+        ]])
+        step_done(deactivate, #prefix, prefix, scan_token)
+        local root_stmt = db:prepare([[
+            UPDATE scan_roots SET last_scan_at=? WHERE path=?;
+        ]])
+        step_done(root_stmt, finished_at, root_path)
     end)
     if ok then
         db:exec("COMMIT;")

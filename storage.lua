@@ -5,7 +5,7 @@ local SQ3 = require("lua-ljsqlite3/init")
 local Storage = {}
 Storage.__index = Storage
 
-local SCHEMA_VERSION = 1
+local SCHEMA_VERSION = 2
 
 local SCHEMA = [[
 CREATE TABLE IF NOT EXISTS meta (
@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS books (
     filesize INTEGER,
     filemtime INTEGER,
     scanned_at INTEGER NOT NULL,
+    scan_token INTEGER,
     title TEXT,
     sort_title TEXT,
     language TEXT,
@@ -93,6 +94,8 @@ CREATE INDEX IF NOT EXISTS idx_books_language
     ON books(active, language);
 CREATE INDEX IF NOT EXISTS idx_books_format
     ON books(active, format);
+CREATE INDEX IF NOT EXISTS idx_books_scan_token
+    ON books(scan_token, active);
 CREATE INDEX IF NOT EXISTS idx_authors_sort
     ON authors(sort_name, name);
 CREATE INDEX IF NOT EXISTS idx_book_authors_author

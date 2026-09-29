@@ -35,7 +35,7 @@ function Indexer:readState(path)
     }
 end
 
-function Indexer:indexFile(path)
+function Indexer:indexFile(path, scan_token, scanned_at)
     if not DocumentRegistry:hasProvider(path) then
         return false, "unsupported"
     end
@@ -49,7 +49,9 @@ function Indexer:indexFile(path)
         props = self.ui.bookinfo:getDocProps(path)
     end
 
-    local book = Model.bookRecord(path, attrs, props, self:readState(path), os.time())
+    local read_state = self:readState(path)
+    read_state.scan_token = scan_token
+    local book = Model.bookRecord(path, attrs, props, read_state, scanned_at or os.time())
     self.repo:upsertBook(book)
     return true, book
 end
