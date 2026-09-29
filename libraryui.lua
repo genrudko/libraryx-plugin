@@ -686,6 +686,258 @@ function LibraryUI:showFolders()
     })
 end
 
+local function valuesWithCounts(books, getter)
+    local counts = {}
+    for _, book in ipairs(books) do
+        local values = getter(book)
+        if type(values) ~= "table" then values = { values } end
+        local seen = {}
+        for _, value in ipairs(values) do
+            if value and value ~= "" and not seen[value] then
+                counts[value] = (counts[value] or 0) + 1
+                seen[value] = true
+            end
+        end
+    end
+    local out = {}
+    for value, count in pairs(counts) do
+        out[#out + 1] = { value=value, count=count }
+    end
+    table.sort(out, function(a, b) return collate(a.value, b.value) end)
+    return out
+end
+
+function LibraryUI:showFilteredBooks(title, source_books, predicate)
+    local books = {}
+    for _, book in ipairs(source_books) do
+        if predicate(book) then books[#books + 1] = book end
+    end
+    self:showBooks(title, books, {
+        sort_mode = SORT_TITLE,
+        reverse = false,
+        reload = function(new_mode, new_reverse)
+            self:showBooks(title, books, {
+                sort_mode = new_mode,
+                reverse = new_reverse,
+                reload = function() end,
+            })
+        end,
+    })
+end
+
+function LibraryUI:showValueFilter(title, books, values, predicate, display)
+    local items = {}
+    for _, entry in ipairs(values) do
+        local value = entry.value
+        items[#items + 1] = {
+            text = display and display(value) or value,
+            mandatory = tostring(entry.count),
+            callback = function()
+                self:showFilteredBooks(
+                    title .. " / " .. (display and display(value) or value),
+                    books,
+                    function(book) return predicate(book, value) end)
+            end,
+        }
+    end
+    UIManager:show(Menu:new{
+        title = title,
+        item_table = items,
+        is_borderless = true,
+        covers_fullscreen = true,
+    })
+end
+
+function LibraryUI:showLanguageFilter(books)
+    local values = valuesWithCounts(books, function(book)
+        return book.language
+    end)
+    self:showValueFilter(L("filter_language"), books, values,
+        function(book, value) return book.language == value end,
+        function(value) return value:upper() end)
+end
+
+function LibraryUI:showGenreFilter(books)
+    local values = valuesWithCounts(books, function(book)
+        local out = {}
+        for value in (book.genres or ""):gmatch("[^\n]+") do
+            out[#out + 1] = value
+        end
+        return out
+    end)
+    self:showValueFilter(L("filter_genres"), books, values,
+        function(book, value)
+            for genre in (book.genres or ""):gmatch("[^\n]+") do
+                if genre == value then return true end
+            end
+            return false
+        end)
+end
+
+function LibraryUI:showFormatFilter(books)
+    local values = valuesWithCounts(books, function(book)
+        local path = (book.path or ""):lower()
+        if path:match("%.fb2%.zip$") then return "FB2.ZIP" end
+        return book.format or ""
+    end)
+    self:showValueFilter(L("filter_format"), books, values,
+        function(book, value)
+            local path = (book.path or ""):lower()
+            local fmt = path:match("%.fb2%.zip$") and "FB2.ZIP" or (book.format or "")
+            return fmt == value
+        end)
+end
+
+function LibraryUI:showScanDateFilter(books)
+    local values = valuesWithCounts(books, function(book)
+        local ts = tonumber(book.added_at)
+        return ts and os.date("%Y-%m-%d", ts) or nil
+    end)
+    table.sort(values, function(a, b) return a.value > b.value end)
+    self:showValueFilter(L("filter_scan_date"), books, values,
+        function(book, value)
+            local ts = tonumber(book.added_at)
+            return ts and os.date("%Y-%m-%d", ts) == value
+        end)
+end
+
+function LibraryUI:showFileNoveltyFilter(books)
+    local now = os.time()
+    local day = 24 * 60 * 60
+    local buckets = {
+        { text=L("today"), count=0, min=0, max=day },
+        { text=L("last_7_days"), count=0, min=day, max=7*day },
+        { text=L("last_30_days"), count=0, min=7*day, max=30*day },
+        { text=L("older"), count=0, min=30*day, max=math.huge },
+    }
+    for _, book in ipairs(books) do
+        local age = math.max(0, now - (tonumber(book.filemtime) or 0))
+        for _, bucket in ipairs(buckets) do
+            if age >= bucket.min and age < bucket.max then
+                bucket.count = bucket.count + 1
+                break
+            end
+        end
+    end
+
+    local items = {}
+    for _, bucket in ipairs(buckets) do
+        local b = bucket
+        items[#items + 1] = {
+            text = b.text,
+            mandatory = tostring(b.count),
+            callback = function()
+                self:showFilteredBooks(
+                    L("filter_file_novelty") .. " / " .. b.text,
+                    books,
+                    function(book)
+                        local age = math.max(0, now - (tonumber(book.filemtime) or 0))
+                        return age >= b.min and age < b.max
+                    end)
+            end,
+        }
+    end
+    UIManager:show(Menu:new{
+        title = L("filter_file_novelty"),
+        item_table = items,
+        is_borderless = true,
+        covers_fullscreen = true,
+    })
+end
+
+function LibraryUI:showAdditionalFilter(books)
+    local specs = {
+        {
+            text=L("with_series"),
+            predicate=function(book) return book.series and book.series ~= "" end,
+        },
+        {
+            text=L("without_series"),
+            predicate=function(book) return not book.series or book.series == "" end,
+        },
+        {
+            text=L("started_books"),
+            predicate=function(book)
+                return (tonumber(book.percent_finished) or 0) > 0
+                    and (tonumber(book.percent_finished) or 0) < 1
+            end,
+        },
+        {
+            text=L("unopened_books"),
+            predicate=function(book) return not book.last_read_at end,
+        },
+    }
+    local items = {}
+    for _, spec in ipairs(specs) do
+        local count = 0
+        for _, book in ipairs(books) do
+            if spec.predicate(book) then count = count + 1 end
+        end
+        local sp = spec
+        items[#items + 1] = {
+            text = sp.text,
+            mandatory = tostring(count),
+            callback = function()
+                self:showFilteredBooks(
+                    L("filter_additional") .. " / " .. sp.text,
+                    books, sp.predicate)
+            end,
+        }
+    end
+    UIManager:show(Menu:new{
+        title = L("filter_additional"),
+        item_table = items,
+        is_borderless = true,
+        covers_fullscreen = true,
+    })
+end
+
+function LibraryUI:showDataFilters()
+    local books = self.repo:listCatalogBooks(10000, 0)
+    local items = {
+        {
+            text=L("filter_language"),
+            callback=function() self:showLanguageFilter(books) end,
+        },
+        {
+            text=L("filter_genres"),
+            callback=function() self:showGenreFilter(books) end,
+        },
+        {
+            text=L("filter_scan_date"),
+            callback=function() self:showScanDateFilter(books) end,
+        },
+        {
+            text=L("filter_file_novelty"),
+            callback=function() self:showFileNoveltyFilter(books) end,
+        },
+        {
+            text=L("filter_additional"),
+            callback=function() self:showAdditionalFilter(books) end,
+        },
+        {
+            text=L("filter_format"),
+            callback=function() self:showFormatFilter(books) end,
+        },
+    }
+    UIManager:show(Menu:new{
+        title = L("data_filters"),
+        item_table = items,
+        is_borderless = true,
+        covers_fullscreen = true,
+    })
+end
+
+function LibraryUI:openRandomBook()
+    local books = self.repo:listCatalogBooks(10000, 0)
+    if #books == 0 then return end
+    -- math.random is fine here: this is a user action, not a reproducible
+    -- database operation, and avoids another large correlated SQL projection.
+    math.randomseed(os.time() + #books)
+    local book = books[math.random(#books)]
+    ReaderUI:showReader(book.path)
+end
+
 function LibraryUI:showRoot()
     Debug.log("open library root")
 
@@ -714,19 +966,18 @@ function LibraryUI:showRoot()
             callback = function() self:showSeries() end,
         },
         {
-            text = L("folders"),
-            callback = function() self:showFolders() end,
-        },
-        {
-            text = L("recent"),
+            text = L("titles"),
+            mandatory_func = function()
+                return tostring(self.repo:countBooks())
+            end,
             callback = function()
-                local books = self.repo:listRecent(100)
-                self:showBooks(L("recent"), books, {
-                    locked_sort = SORT_RECENT,
+                local books = self.repo:listCatalogBooks(10000, 0)
+                self:showBooks(L("titles"), books, {
+                    locked_sort = SORT_TITLE,
                     reverse = false,
                     reload = function(_, new_reverse)
-                        self:showBooks(L("recent"), books, {
-                            locked_sort = SORT_RECENT,
+                        self:showBooks(L("titles"), books, {
+                            locked_sort = SORT_TITLE,
                             reverse = new_reverse,
                             reload = function() end,
                         })
@@ -735,19 +986,20 @@ function LibraryUI:showRoot()
             end,
         },
         {
-            text = L("update_library"),
+            text = L("folders"),
+            callback = function() self:showFolders() end,
+        },
+        {
+            text = L("random_book"),
+            callback = function() self:openRandomBook() end,
+        },
+        {
+            text = L("data_filters"),
+            callback = function() self:showDataFilters() end,
+        },
+        {
+            text = L("scan_library"),
             callback = function() self.plugin:scanLibrary(false) end,
-        },
-        {
-            text_func = function()
-                local root = self.plugin:getLibraryRoot() or L("not_selected")
-                return L("library_folder") .. "\n" .. root
-            end,
-            callback = function() self.plugin:chooseLibraryRoot() end,
-        },
-        {
-            text = L("debug"),
-            callback = function() self.plugin:showDebugMenu() end,
         },
     }
 
