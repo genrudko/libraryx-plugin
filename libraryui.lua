@@ -19,6 +19,8 @@ local SORT_TITLE = "title"
 local SORT_AUTHOR = "author"
 local SORT_SERIES = "series"
 local SORT_RECENT = "recent"
+local SORT_ADDED = "added"
+local SORT_FILEDATE = "filedate"
 local SORT_SERIES_INDEX = "series_index"
 
 function LibraryUI.new(plugin, repo)
@@ -58,6 +60,8 @@ end
 function LibraryUI:sortLabel(mode)
     if mode == SORT_AUTHOR then return L("sort_author") end
     if mode == SORT_SERIES then return L("sort_series") end
+    if mode == SORT_ADDED then return L("sort_added") end
+    if mode == SORT_FILEDATE then return L("sort_filedate") end
     if mode == SORT_RECENT then return L("sort_recent") end
     if mode == SORT_SERIES_INDEX then return L("sort_series_index") end
     return L("sort_title")
@@ -70,6 +74,10 @@ function LibraryUI:sortKey(book, mode)
         return book.series or "\u{FFFF}"
     elseif mode == SORT_RECENT then
         return tonumber(book.last_read_at) or 0
+    elseif mode == SORT_ADDED then
+        return tonumber(book.added_at) or 0
+    elseif mode == SORT_FILEDATE then
+        return tonumber(book.filemtime) or 0
     elseif mode == SORT_SERIES_INDEX then
         return tonumber(book.series_index)
     end
@@ -78,9 +86,12 @@ end
 
 function LibraryUI:sortBooks(books, mode, reverse)
     local function less(a, b)
-        if mode == SORT_RECENT then
-            local av = tonumber(a.last_read_at) or 0
-            local bv = tonumber(b.last_read_at) or 0
+        if mode == SORT_RECENT or mode == SORT_ADDED or mode == SORT_FILEDATE then
+            local field = mode == SORT_RECENT and "last_read_at"
+                or mode == SORT_ADDED and "added_at"
+                or "filemtime"
+            local av = tonumber(a[field]) or 0
+            local bv = tonumber(b[field]) or 0
             if av ~= bv then return av > bv end
         elseif mode == SORT_SERIES_INDEX then
             local ai = tonumber(a.series_index)
@@ -313,6 +324,96 @@ function LibraryUI:showBookActions(menu, book)
     UIManager:show(dialog)
 end
 
+local upper_cyr = {
+    ["а"]="А",["б"]="Б",["в"]="В",["г"]="Г",["д"]="Д",["е"]="Е",["ё"]="Ё",
+    ["ж"]="Ж",["з"]="З",["и"]="И",["й"]="Й",["к"]="К",["л"]="Л",["м"]="М",
+    ["н"]="Н",["о"]="О",["п"]="П",["р"]="Р",["с"]="С",["т"]="Т",["у"]="У",
+    ["ф"]="Ф",["х"]="Х",["ц"]="Ц",["ч"]="Ч",["ш"]="Ш",["щ"]="Щ",["ъ"]="Ъ",
+    ["ы"]="Ы",["ь"]="Ь",["э"]="Э",["ю"]="Ю",["я"]="Я",
+}
+
+local function firstLetter(text)
+    if not text or text == "" then return "#" end
+    local c = text:match(util.UTF8_CHAR_PATTERN)
+    if not c then return "#" end
+    return upper_cyr[c] or c:upper()
+end
+
+function LibraryUI:alphabetKey(book, mode)
+    if mode == SORT_AUTHOR then
+        return first_value(book.authors)
+    elseif mode == SORT_SERIES then
+        return book.series or ""
+    elseif mode == SORT_TITLE then
+        return book.title or ""
+    end
+end
+
+function LibraryUI:showAlphabet(menu, books, mode)
+    if mode ~= SORT_TITLE and mode ~= SORT_AUTHOR and mode ~= SORT_SERIES then
+        local InfoMessage = require("ui/widget/infomessage")
+        UIManager:show(InfoMessage:new{
+            text = L("no_alphabet"),
+            timeout = 3,
+        })
+        return
+    end
+
+    local first_positions = {}
+    local letters = {}
+    for i, book in ipairs(books) do
+        local letter = firstLetter(self:alphabetKey(book, mode))
+        if not first_positions[letter] then
+            first_positions[letter] = i
+            letters[#letters + 1] = letter
+        end
+    end
+
+    local rows, row = {}, {}
+    local dialog
+    for _, letter in ipairs(letters) do
+        local position = first_positions[letter]
+        row[#row + 1] = {
+            text = letter,
+            callback = function()
+                UIManager:close(dialog)
+                menu:switchItemTable(nil, nil, position)
+            end,
+        }
+        if #row == 6 then
+            rows[#rows + 1] = row
+            row = {}
+        end
+    end
+    if #row > 0 then rows[#rows + 1] = row end
+
+    dialog = ButtonDialog:new{
+        title = L("alphabet_index"),
+        buttons = rows,
+    }
+    UIManager:show(dialog)
+end
+
+function LibraryUI:showBookListMore(menu, books, mode)
+    local dialog
+    dialog = ButtonDialog:new{
+        title = L("more"),
+        buttons = {
+            {
+                {
+                    text = L("alphabet"),
+                    enabled = mode == SORT_TITLE or mode == SORT_AUTHOR or mode == SORT_SERIES,
+                    callback = function()
+                        UIManager:close(dialog)
+                        self:showAlphabet(menu, books, mode)
+                    end,
+                },
+            },
+        },
+    }
+    UIManager:show(dialog)
+end
+
 function LibraryUI:showSortDialog(menu, opts)
     local mode = opts.sort_mode
     local reverse = opts.reverse == true
@@ -343,8 +444,14 @@ function LibraryUI:showSortDialog(menu, opts)
                 callback = function() reload(SORT_SERIES, reverse) end,
             },
             {
-                text = L("sort_recent") .. (mode == SORT_RECENT and " ✓" or ""),
-                callback = function() reload(SORT_RECENT, reverse) end,
+                text = L("sort_added") .. (mode == SORT_ADDED and " ✓" or ""),
+                callback = function() reload(SORT_ADDED, reverse) end,
+            },
+        }
+        rows[#rows + 1] = {
+            {
+                text = L("sort_filedate") .. (mode == SORT_FILEDATE and " ✓" or ""),
+                callback = function() reload(SORT_FILEDATE, reverse) end,
             },
         }
     end
@@ -405,12 +512,7 @@ function LibraryUI:showBooks(title, books, opts)
             })
         end,
         onMoreTap = function()
-            self:showSortDialog(menu, {
-                sort_mode = mode,
-                reverse = reverse,
-                locked_sort = locked,
-                reload = reload,
-            })
+            self:showBookListMore(menu, books, mode)
         end,
     }
     self.menus[#self.menus + 1] = menu

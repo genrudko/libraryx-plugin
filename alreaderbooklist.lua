@@ -110,8 +110,8 @@ function AlReaderBookList:updateAlReaderFooter()
     local last = math.min(self.page * self.perpage, total)
     local label = self.sort_label or L("sort_title")
     self.footer_sort:setText(string.format(
-        "%s\n%s\n%d-%d / %d",
-        L("sort"), label, first, last, total))
+        "%s\n%s\n%d-%d",
+        L("sort"), label, first, last))
 end
 
 function AlReaderBookList:updatePageInfo(select_number)

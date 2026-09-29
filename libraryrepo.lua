@@ -32,10 +32,10 @@ function LibraryRepo:upsertBook(book)
         local stmt = db:prepare([[
             INSERT INTO books (
                 path, directory, filename, filesize, filemtime, scanned_at, scan_token,
-                metadata_version, title, sort_title, language, series, series_index, description,
+                metadata_version, added_at, title, sort_title, language, series, series_index, description,
                 format, active, last_read_at, percent_finished, reading_status
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(path) DO UPDATE SET
                 directory=excluded.directory,
                 filename=excluded.filename,
@@ -58,7 +58,7 @@ function LibraryRepo:upsertBook(book)
         ]])
         step_done(stmt,
             book.path, book.directory, book.filename, book.filesize, book.filemtime,
-            book.scanned_at, book.scan_token, book.metadata_version,
+            book.scanned_at, book.scan_token, book.metadata_version, book.added_at,
             book.title, book.sort_title, book.language,
             book.series, book.series_index, book.description, book.format, book.active,
             book.last_read_at, book.percent_finished, book.reading_status)
@@ -375,7 +375,8 @@ function LibraryRepo:listBooksByAuthor(author_id)
             series_index=tonumber(row[5]), language=row[6], format=row[7],
             filesize=tonumber(row[8]), last_read_at=tonumber(row[9]),
             percent_finished=tonumber(row[10]), reading_status=row[11],
-            filemtime=tonumber(row[12]), authors=row[13] or "", genres=row[14] or "",
+            filemtime=tonumber(row[12]), added_at=tonumber(row[13]),
+            authors=row[14] or "", genres=row[15] or "",
         }
     end)
 end
@@ -386,7 +387,7 @@ function LibraryRepo:listBooksBySeries(series)
         SELECT
             b.id, b.path, b.title, b.series, b.series_index, b.language,
             b.format, b.filesize, b.last_read_at, b.percent_finished,
-            b.reading_status, b.filemtime,
+            b.reading_status, b.filemtime, b.added_at,
             COALESCE((
                 SELECT group_concat(x.name, char(10))
                 FROM (
@@ -419,7 +420,8 @@ function LibraryRepo:listBooksBySeries(series)
             series_index=tonumber(row[5]), language=row[6], format=row[7],
             filesize=tonumber(row[8]), last_read_at=tonumber(row[9]),
             percent_finished=tonumber(row[10]), reading_status=row[11],
-            filemtime=tonumber(row[12]), authors=row[13] or "", genres=row[14] or "",
+            filemtime=tonumber(row[12]), added_at=tonumber(row[13]),
+            authors=row[14] or "", genres=row[15] or "",
         }
     end)
 end
@@ -430,7 +432,7 @@ function LibraryRepo:listBooksByFolder(folder)
         SELECT
             b.id, b.path, b.title, b.series, b.series_index, b.language,
             b.format, b.filesize, b.last_read_at, b.percent_finished,
-            b.reading_status, b.filemtime,
+            b.reading_status, b.filemtime, b.added_at,
             COALESCE((
                 SELECT group_concat(x.name, char(10))
                 FROM (
@@ -462,7 +464,8 @@ function LibraryRepo:listBooksByFolder(folder)
             series_index=tonumber(row[5]), language=row[6], format=row[7],
             filesize=tonumber(row[8]), last_read_at=tonumber(row[9]),
             percent_finished=tonumber(row[10]), reading_status=row[11],
-            filemtime=tonumber(row[12]), authors=row[13] or "", genres=row[14] or "",
+            filemtime=tonumber(row[12]), added_at=tonumber(row[13]),
+            authors=row[14] or "", genres=row[15] or "",
         }
     end)
 end
@@ -473,7 +476,7 @@ function LibraryRepo:listRecent(limit)
         SELECT
             b.id, b.path, b.title, b.series, b.series_index, b.language,
             b.format, b.filesize, b.last_read_at, b.percent_finished,
-            b.reading_status, b.filemtime,
+            b.reading_status, b.filemtime, b.added_at,
             COALESCE((
                 SELECT group_concat(x.name, char(10))
                 FROM (
@@ -506,7 +509,8 @@ function LibraryRepo:listRecent(limit)
             series_index=tonumber(row[5]), language=row[6], format=row[7],
             filesize=tonumber(row[8]), last_read_at=tonumber(row[9]),
             percent_finished=tonumber(row[10]), reading_status=row[11],
-            filemtime=tonumber(row[12]), authors=row[13] or "", genres=row[14] or "",
+            filemtime=tonumber(row[12]), added_at=tonumber(row[13]),
+            authors=row[14] or "", genres=row[15] or "",
         }
     end)
 end
@@ -532,7 +536,7 @@ function LibraryRepo:listCatalogBooks(limit, offset)
         SELECT
             b.id, b.path, b.title, b.series, b.series_index, b.language,
             b.format, b.filesize, b.last_read_at, b.percent_finished,
-            b.reading_status, b.filemtime,
+            b.reading_status, b.filemtime, b.added_at,
             COALESCE((
                 SELECT group_concat(x.name, char(10))
                 FROM (
@@ -565,7 +569,8 @@ function LibraryRepo:listCatalogBooks(limit, offset)
             series_index=tonumber(row[5]), language=row[6], format=row[7],
             filesize=tonumber(row[8]), last_read_at=tonumber(row[9]),
             percent_finished=tonumber(row[10]), reading_status=row[11],
-            filemtime=tonumber(row[12]), authors=row[13] or "", genres=row[14] or "",
+            filemtime=tonumber(row[12]), added_at=tonumber(row[13]),
+            authors=row[14] or "", genres=row[15] or "",
         }
     end)
 end

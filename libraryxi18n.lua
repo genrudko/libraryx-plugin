@@ -66,6 +66,12 @@ local strings = {
         go_to_author = "Author",
         go_to_series = "Series",
         go_to_folder = "Folder",
+        titles = "Titles",
+        random_book = "Random book",
+        data_filters = "Data filters",
+        sort_added = "By date added",
+        sort_filedate = "By file date",
+        more = "More",
     },
     ru = {
         libraryx = "LibraryX",
@@ -132,6 +138,12 @@ local strings = {
         go_to_author = "Автору",
         go_to_series = "Серии",
         go_to_folder = "Папке",
+        titles = "Названия",
+        random_book = "Случайная книга",
+        data_filters = "Фильтры данных",
+        sort_added = "По дате добавления",
+        sort_filedate = "По дате файла",
+        more = "Дополнительно",
     },
 }
 

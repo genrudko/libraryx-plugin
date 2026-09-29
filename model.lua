@@ -53,6 +53,7 @@ function Model.bookRecord(path, attrs, props, read_state, now)
         scanned_at = assert(now),
         scan_token = read_state.scan_token,
         metadata_version = tonumber(read_state.metadata_version) or 0,
+        added_at = assert(now),
         title = title,
         sort_title = Model.normalizeSortText(title),
         language = trim(props.language),
