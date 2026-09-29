@@ -35,7 +35,7 @@ fi
 
 echo "[2/4] Lua syntax"
 if [[ -n "$LUA_BIN" ]]; then
-  for f in _meta.lua main.lua compat.lua state.lua storage.lua model.lua libraryrepo.lua indexer.lua scanplan.lua scanner.lua libraryxdebug.lua libraryxi18n.lua debugui.lua libraryui.lua tests/test_state.lua tests/test_model.lua tests/test_scanplan.lua tests/test_scanner.lua tests/test_no_rows_api.lua tests/test_debug_build_static.lua tests/test_device_bugfix_static.lua; do
+  for f in _meta.lua main.lua compat.lua state.lua storage.lua model.lua libraryrepo.lua indexer.lua scanplan.lua scanner.lua libraryxdebug.lua libraryxi18n.lua debugui.lua libraryui.lua tests/test_state.lua tests/test_model.lua tests/test_scanplan.lua tests/test_scanner.lua tests/test_no_rows_api.lua tests/test_debug_build_static.lua tests/test_device_bugfix_static.lua tests/test_metadata_policy_static.lua; do
     "$LUA_BIN" -e "local chunk, err = loadfile([[$f]]) if not chunk then error(err) end"
     echo "syntax OK: $f"
   done
@@ -49,7 +49,7 @@ if [[ -n "$LUA_BIN" ]]; then
   "$LUA_BIN" tests/test_model.lua
   "$LUA_BIN" tests/test_scanplan.lua
   "$LUA_BIN" tests/test_scanner.lua
-  "$LUA_BIN" tests/test_no_rows_api.lua tests/test_debug_build_static.lua tests/test_device_bugfix_static.lua
+  "$LUA_BIN" tests/test_no_rows_api.lua tests/test_debug_build_static.lua tests/test_device_bugfix_static.lua tests/test_metadata_policy_static.lua
 else
   echo "SKIP: no Lua runtime available"
 fi

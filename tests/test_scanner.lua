@@ -48,6 +48,8 @@ local repo = {
         assert(type(started_at) == "number")
         return 7
     end,
+    getMetadataVersion = function() return 2 end,
+    setMetadataVersion = function(_, version) assert(version == 2) end,
     getFingerprint = function(_, path)
         if path == "/root/same.epub" then
             return { filesize = 20, filemtime = 2 }

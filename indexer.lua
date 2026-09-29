@@ -8,6 +8,9 @@ local LibraryRepo = require("libraryrepo")
 local Indexer = {}
 Indexer.__index = Indexer
 
+local METADATA_VERSION = 2
+Indexer.METADATA_VERSION = METADATA_VERSION
+
 local function history_map()
     local out = {}
     for _, item in ipairs(ReadHistory.hist or {}) do
@@ -45,7 +48,19 @@ function Indexer:indexFile(path, scan_token, scanned_at)
     end
 
     local props = self.ui.bookinfo:getDocProps(path, nil, true)
-    if not props or not next(props) then
+    -- getDocProps(..., true) always returns an extended table; for never-opened
+    -- books that may contain only display_title generated from the filename.
+    -- That is not real metadata, so explicitly open the document for a
+    -- metadata-only load when no meaningful document fields are cached.
+    local has_real_metadata = props and (
+        (props.title and props.title ~= "")
+        or (props.authors and props.authors ~= "")
+        or (props.series and props.series ~= "")
+        or (props.language and props.language ~= "")
+        or (props.keywords and props.keywords ~= "")
+        or (props.description and props.description ~= "")
+    )
+    if not has_real_metadata then
         props = self.ui.bookinfo:getDocProps(path)
     end
 

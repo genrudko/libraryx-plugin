@@ -366,4 +366,64 @@ function LibraryRepo:listRecent(limit)
     end)
 end
 
+
+function LibraryRepo:getMetadataVersion()
+    local db = self.storage:open()
+    return tonumber(db:rowexec(
+        "SELECT value FROM meta WHERE key='metadata_version';")) or 0
+end
+
+function LibraryRepo:setMetadataVersion(version)
+    local db = self.storage:open()
+    local stmt = db:prepare([[
+        INSERT INTO meta(key, value) VALUES ('metadata_version', ?)
+        ON CONFLICT(key) DO UPDATE SET value=excluded.value;
+    ]])
+    step_done(stmt, tostring(version))
+end
+
+function LibraryRepo:listCatalogBooks(limit, offset)
+    local db = self.storage:open()
+    local stmt = db:prepare([[
+        SELECT
+            b.id, b.path, b.title, b.series, b.series_index, b.language,
+            b.format, b.filesize, b.last_read_at, b.percent_finished,
+            b.reading_status,
+            COALESCE((
+                SELECT group_concat(x.name, char(10))
+                FROM (
+                    SELECT a.name AS name
+                    FROM book_authors ba2
+                    JOIN authors a ON a.id=ba2.author_id
+                    WHERE ba2.book_id=b.id
+                    ORDER BY ba2.ordinal
+                ) x
+            ), '') AS authors,
+            COALESCE((
+                SELECT group_concat(y.name, char(10))
+                FROM (
+                    SELECT g.name AS name
+                    FROM book_genres bg2
+                    JOIN genres g ON g.id=bg2.genre_id
+                    WHERE bg2.book_id=b.id
+                    ORDER BY g.name
+                ) y
+            ), '') AS genres
+        FROM books b
+        WHERE b.active=1
+        ORDER BY b.id
+        LIMIT ? OFFSET ?;
+    ]])
+    stmt:reset():bind(limit or 10000, offset or 0)
+    return collect_rows(stmt, function(row)
+        return {
+            id=tonumber(row[1]), path=row[2], title=row[3], series=row[4],
+            series_index=tonumber(row[5]), language=row[6], format=row[7],
+            filesize=tonumber(row[8]), last_read_at=tonumber(row[9]),
+            percent_finished=tonumber(row[10]), reading_status=row[11],
+            authors=row[12] or "", genres=row[13] or "",
+        }
+    end)
+end
+
 return LibraryRepo

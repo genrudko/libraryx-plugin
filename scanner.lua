@@ -61,6 +61,9 @@ function Scanner:scanRoot(root_path, opts)
     local started_at = os.time()
     local token = self.repo:startScan(root_path, started_at)
     local stats = ScanPlan.newStats()
+    local metadata_version = self.repo.getMetadataVersion
+        and self.repo:getMetadataVersion() or 0
+    local force_metadata_reindex = metadata_version < (Indexer.METADATA_VERSION or 1)
 
     local walk_ok, walk_err = walk(root_path, function(path, file_attrs)
         stats.visited = stats.visited + 1
@@ -69,7 +72,8 @@ function Scanner:scanRoot(root_path, opts)
             return
         end
 
-        local fingerprint = self.repo:getFingerprint(path)
+        local fingerprint = not force_metadata_reindex
+            and self.repo:getFingerprint(path) or nil
         if ScanPlan.sameFingerprint(fingerprint, file_attrs) then
             self.repo:touchUnchanged(
                 path, file_attrs, token, started_at, self.indexer:readState(path))
@@ -103,6 +107,9 @@ function Scanner:scanRoot(root_path, opts)
     end
 
     self.repo:finishScan(root_path, token, os.time())
+    if force_metadata_reindex and self.repo.setMetadataVersion then
+        self.repo:setMetadataVersion(Indexer.METADATA_VERSION or 1)
+    end
     return stats
 end
 
