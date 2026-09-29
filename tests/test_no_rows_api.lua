@@ -1,0 +1,6 @@
+local f = assert(io.open("libraryrepo.lua", "r"))
+local src = f:read("*a")
+f:close()
+assert(not src:find(":rows%("), "lua-ljsqlite3 has no stmt:rows() API")
+assert(src:find("stmt:step"), "repository queries should iterate with stmt:step()")
+print("test_no_rows_api: PASS")
