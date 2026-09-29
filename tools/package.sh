@@ -9,7 +9,7 @@ mkdir -p "$STAGE/docs"
 
 cp "$ROOT"/_meta.lua "$ROOT"/main.lua "$ROOT"/compat.lua \
    "$ROOT"/state.lua "$ROOT"/storage.lua "$ROOT"/model.lua "$ROOT"/libraryrepo.lua \
-   "$ROOT"/indexer.lua "$ROOT"/scanplan.lua "$ROOT"/scanner.lua "$ROOT"/libraryxdebug.lua \
+   "$ROOT"/indexer.lua "$ROOT"/scanplan.lua "$ROOT"/scanner.lua "$ROOT"/libraryxdebug.lua "$ROOT"/libraryxi18n.lua \
    "$ROOT"/debugui.lua "$ROOT"/libraryui.lua "$ROOT"/README.md "$STAGE"/
 cp "$ROOT"/docs/*.md "$STAGE/docs"/
 

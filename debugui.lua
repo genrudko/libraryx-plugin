@@ -2,7 +2,7 @@ local TextViewer = require("ui/widget/textviewer")
 local UIManager = require("ui/uimanager")
 local LibraryRepo = require("libraryrepo")
 local Debug = require("libraryxdebug")
-local _ = require("gettext")
+local L = require("libraryxi18n").t
 
 local DebugUI = {}
 
@@ -23,7 +23,7 @@ function DebugUI.report(plugin)
         Debug.read(),
     }, "\n")
     UIManager:show(TextViewer:new{
-        title = _("LibraryX debug"),
+        title = L("debug_title"),
         text = text,
     })
 end

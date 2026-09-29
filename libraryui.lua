@@ -1,10 +1,9 @@
 local Menu = require("ui/widget/menu")
 local ReaderUI = require("apps/reader/readerui")
 local UIManager = require("ui/uimanager")
-local util = require("util")
 local LibraryRepo = require("libraryrepo")
 local Debug = require("libraryxdebug")
-local _ = require("gettext")
+local L = require("libraryxi18n").t
 
 local LibraryUI = {}
 LibraryUI.__index = LibraryUI
@@ -77,13 +76,13 @@ function LibraryUI:showAuthors()
             text = a.name,
             mandatory = tostring(a.count),
             callback = function()
-                self:showBooks(_("Authors") .. " / " .. a.name,
+                self:showBooks(L("authors") .. " / " .. a.name,
                     self.repo:listBooksByAuthor(a.id))
             end,
         }
     end
     UIManager:show(Menu:new{
-        title = _("Authors"),
+        title = L("authors"),
         item_table = items,
         is_borderless = true,
         covers_fullscreen = true,
@@ -98,13 +97,13 @@ function LibraryUI:showSeries()
             text = sr.name,
             mandatory = tostring(sr.count),
             callback = function()
-                self:showBooks(_("Series") .. " / " .. sr.name,
+                self:showBooks(L("series") .. " / " .. sr.name,
                     self.repo:listBooksBySeries(sr.name))
             end,
         }
     end
     UIManager:show(Menu:new{
-        title = _("Series"),
+        title = L("series"),
         item_table = items,
         is_borderless = true,
         covers_fullscreen = true,
@@ -119,13 +118,13 @@ function LibraryUI:showFolders()
             text = f.name,
             mandatory = tostring(f.count),
             callback = function()
-                self:showBooks(_("Folders") .. " / " .. f.name,
+                self:showBooks(L("folders") .. " / " .. f.name,
                     self.repo:listBooksByFolder(f.name))
             end,
         }
     end
     UIManager:show(Menu:new{
-        title = _("Folders"),
+        title = L("folders"),
         item_table = items,
         is_borderless = true,
         covers_fullscreen = true,
@@ -134,59 +133,67 @@ end
 
 function LibraryUI:showRoot()
     Debug.log("open library root")
-    local books = self.repo:countBooks()
-    local authors = self.repo:countAuthors()
-    local series = self.repo:countSeries()
-    local root = self.plugin:getLibraryRoot() or _("not selected")
 
     local items = {
         {
-            text = _("All books"),
-            mandatory = tostring(books),
+            text = L("all_books"),
+            mandatory_func = function()
+                return tostring(self.repo:countBooks())
+            end,
             callback = function()
-                self:showBooks(_("All books"), self.repo:listBooks(5000, 0))
+                self:showBooks(L("all_books"), self.repo:listBooks(5000, 0))
             end,
         },
         {
-            text = _("Authors"),
-            mandatory = tostring(authors),
+            text = L("authors"),
+            mandatory_func = function()
+                return tostring(self.repo:countAuthors())
+            end,
             callback = function() self:showAuthors() end,
         },
         {
-            text = _("Series"),
-            mandatory = tostring(series),
+            text = L("series"),
+            mandatory_func = function()
+                return tostring(self.repo:countSeries())
+            end,
             callback = function() self:showSeries() end,
         },
         {
-            text = _("Folders"),
+            text = L("folders"),
             callback = function() self:showFolders() end,
         },
         {
-            text = _("Recent"),
+            text = L("recent"),
             callback = function()
-                self:showBooks(_("Recent"), self.repo:listRecent(100))
+                self:showBooks(L("recent"), self.repo:listRecent(100))
             end,
         },
         {
-            text = _("Scan library"),
+            text = L("scan_library"),
             callback = function() self.plugin:scanLibrary() end,
         },
         {
-            text = _("Library folder") .. "\n" .. root,
+            text_func = function()
+                local root = self.plugin:getLibraryRoot() or L("not_selected")
+                return L("library_folder") .. "\n" .. root
+            end,
             callback = function() self.plugin:chooseLibraryRoot() end,
         },
         {
-            text = _("Debug"),
+            text = L("debug"),
             callback = function() self.plugin:showDebugMenu() end,
         },
     }
 
-    UIManager:show(Menu:new{
-        title = _("LibraryX"),
+    local menu = Menu:new{
+        title = L("libraryx"),
         item_table = items,
         is_borderless = true,
         covers_fullscreen = true,
-    })
+    }
+    self.plugin.library_menu = menu
+    self.menus[#self.menus + 1] = menu
+    UIManager:show(menu)
 end
 
 return LibraryUI

@@ -1,0 +1,94 @@
+local I18N = {}
+
+local strings = {
+    en = {
+        libraryx = "LibraryX",
+        libraryx_debug = "LibraryX [DEBUG]",
+        open_libraryx = "Open LibraryX",
+        scan_library = "Scan library",
+        library_folder = "Library folder",
+        choose_library_folder = "Choose library folder",
+        choose_libraryx_folder = "Choose LibraryX folder",
+        folder_selected = "Library folder selected:",
+        choose_folder_first = "Choose a library folder first.",
+        debug = "Debug",
+        all_books = "All books",
+        authors = "Authors",
+        series = "Series",
+        folders = "Folders",
+        recent = "Recent",
+        not_selected = "not selected",
+        scan_paused = "Library scan paused.\nContinue scanning or abort?",
+        continue = "Continue",
+        abort = "Abort",
+        scanning = "LibraryX is scanning…\nTap to pause/cancel.",
+        scan_progress = "LibraryX scan\nTap to pause/cancel.",
+        files_seen = "Files seen",
+        indexed = "Indexed",
+        unchanged = "Unchanged",
+        unsupported = "Unsupported",
+        errors = "Errors",
+        scan_failed = "Library scan failed.",
+        scan_cancelled = "LibraryX scan cancelled safely.",
+        scan_complete = "LibraryX scan complete",
+        debug_title = "LibraryX debug",
+        report = "Report",
+        clear_log = "Clear log",
+        log_cleared = "Debug log cleared.",
+        compatibility_probe = "Compatibility probe",
+        internal_error = "LibraryX internal error",
+    },
+    ru = {
+        libraryx = "LibraryX",
+        libraryx_debug = "LibraryX [ОТЛАДКА]",
+        open_libraryx = "Открыть LibraryX",
+        scan_library = "Сканировать библиотеку",
+        library_folder = "Папка библиотеки",
+        choose_library_folder = "Выбрать папку библиотеки",
+        choose_libraryx_folder = "Выберите папку LibraryX",
+        folder_selected = "Папка библиотеки выбрана:",
+        choose_folder_first = "Сначала выберите папку библиотеки.",
+        debug = "Отладка",
+        all_books = "Все книги",
+        authors = "Авторы",
+        series = "Серии",
+        folders = "Папки",
+        recent = "Недавние",
+        not_selected = "не выбрана",
+        scan_paused = "Сканирование библиотеки приостановлено.\nПродолжить или отменить?",
+        continue = "Продолжить",
+        abort = "Отменить",
+        scanning = "LibraryX сканирует библиотеку…\nНажмите, чтобы приостановить или отменить.",
+        scan_progress = "Сканирование LibraryX\nНажмите, чтобы приостановить или отменить.",
+        files_seen = "Найдено файлов",
+        indexed = "Проиндексировано",
+        unchanged = "Без изменений",
+        unsupported = "Не поддерживается",
+        errors = "Ошибок",
+        scan_failed = "Сканирование библиотеки завершилось ошибкой.",
+        scan_cancelled = "Сканирование LibraryX безопасно отменено.",
+        scan_complete = "Сканирование LibraryX завершено",
+        debug_title = "Отладка LibraryX",
+        report = "Отчёт",
+        clear_log = "Очистить журнал",
+        log_cleared = "Журнал отладки очищен.",
+        compatibility_probe = "Проверка совместимости",
+        internal_error = "Внутренняя ошибка LibraryX",
+    },
+}
+
+local function language()
+    local lang = G_reader_settings and G_reader_settings:readSetting("language") or "en"
+    lang = tostring(lang or "en"):lower()
+    if lang:sub(1, 2) == "ru" then return "ru" end
+    return "en"
+end
+
+function I18N.t(key)
+    local lang = language()
+    return (strings[lang] and strings[lang][key])
+        or strings.en[key]
+        or key
+end
+
+return I18N
