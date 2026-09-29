@@ -9,6 +9,9 @@ test -f main.lua
 test -f compat.lua
 test -f state.lua
 test -f storage.lua
+test -f model.lua
+test -f libraryrepo.lua
+test -f indexer.lua
 
 LOCAL_LJ="$(find "$PWD/.tools/luajit" -type f -path '*/bin/luajit*' 2>/dev/null | head -n1 || true)"
 LOCAL_LIBDIR="$(find "$PWD/.tools/luajit" -type f -name 'libluajit-5.1.so.2*' -printf '%h\n' 2>/dev/null | head -n1 || true)"
@@ -26,7 +29,7 @@ fi
 
 echo "[2/4] Lua syntax"
 if [[ -n "$LUA_BIN" ]]; then
-  for f in _meta.lua main.lua compat.lua state.lua storage.lua tests/test_state.lua; do
+  for f in _meta.lua main.lua compat.lua state.lua storage.lua model.lua libraryrepo.lua indexer.lua tests/test_state.lua tests/test_model.lua; do
     "$LUA_BIN" -e "local chunk, err = loadfile([[$f]]) if not chunk then error(err) end"
     echo "syntax OK: $f"
   done
@@ -37,6 +40,7 @@ fi
 echo "[3/4] pure-Lua state test"
 if [[ -n "$LUA_BIN" ]]; then
   "$LUA_BIN" tests/test_state.lua
+  "$LUA_BIN" tests/test_model.lua
 else
   echo "SKIP: no Lua runtime available"
 fi

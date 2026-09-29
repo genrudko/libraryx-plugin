@@ -1,0 +1,133 @@
+local Storage = require("storage")
+
+local LibraryRepo = {}
+LibraryRepo.__index = LibraryRepo
+
+function LibraryRepo.new(storage)
+    return setmetatable({
+        storage = storage or Storage.new(),
+    }, LibraryRepo)
+end
+
+local function step_done(stmt, ...)
+    stmt:reset():bind(...):step()
+end
+
+function LibraryRepo:upsertBook(book)
+    local db = self.storage:open()
+    db:exec("BEGIN IMMEDIATE;")
+    local ok, err = pcall(function()
+        local stmt = db:prepare([[
+            INSERT INTO books (
+                path, directory, filename, filesize, filemtime, scanned_at,
+                title, sort_title, language, series, series_index, description,
+                format, active, last_read_at, percent_finished, reading_status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(path) DO UPDATE SET
+                directory=excluded.directory,
+                filename=excluded.filename,
+                filesize=excluded.filesize,
+                filemtime=excluded.filemtime,
+                scanned_at=excluded.scanned_at,
+                title=excluded.title,
+                sort_title=excluded.sort_title,
+                language=excluded.language,
+                series=excluded.series,
+                series_index=excluded.series_index,
+                description=excluded.description,
+                format=excluded.format,
+                active=1,
+                last_read_at=excluded.last_read_at,
+                percent_finished=excluded.percent_finished,
+                reading_status=excluded.reading_status;
+        ]])
+        step_done(stmt,
+            book.path, book.directory, book.filename, book.filesize, book.filemtime,
+            book.scanned_at, book.title, book.sort_title, book.language, book.series,
+            book.series_index, book.description, book.format, book.active,
+            book.last_read_at, book.percent_finished, book.reading_status)
+
+        local id_stmt = db:prepare("SELECT id FROM books WHERE path = ?;")
+        local id_row = id_stmt:reset():bind(book.path):step()
+        assert(id_row and id_row[1], "book row missing after upsert")
+        local book_id = id_row[1]
+
+        step_done(db:prepare("DELETE FROM book_authors WHERE book_id = ?;"), book_id)
+        local insert_author = db:prepare([[
+            INSERT INTO authors(name, sort_name) VALUES (?, ?)
+            ON CONFLICT(name) DO NOTHING;
+        ]])
+        local author_id_stmt = db:prepare("SELECT id FROM authors WHERE name = ?;")
+        local link_author = db:prepare([[
+            INSERT OR REPLACE INTO book_authors(book_id, author_id, ordinal)
+            VALUES (?, ?, ?);
+        ]])
+        for ordinal, name in ipairs(book.authors or {}) do
+            step_done(insert_author, name, name:lower())
+            local row = author_id_stmt:reset():bind(name):step()
+            assert(row and row[1], "author id missing")
+            step_done(link_author, book_id, row[1], ordinal)
+        end
+
+        step_done(db:prepare("DELETE FROM book_genres WHERE book_id = ?;"), book_id)
+        local insert_genre = db:prepare([[
+            INSERT INTO genres(name, sort_name) VALUES (?, ?)
+            ON CONFLICT(name) DO NOTHING;
+        ]])
+        local genre_id_stmt = db:prepare("SELECT id FROM genres WHERE name = ?;")
+        local link_genre = db:prepare([[
+            INSERT OR REPLACE INTO book_genres(book_id, genre_id)
+            VALUES (?, ?);
+        ]])
+        for _, name in ipairs(book.genres or {}) do
+            step_done(insert_genre, name, name:lower())
+            local row = genre_id_stmt:reset():bind(name):step()
+            assert(row and row[1], "genre id missing")
+            step_done(link_genre, book_id, row[1])
+        end
+    end)
+    if ok then
+        db:exec("COMMIT;")
+    else
+        pcall(function() db:exec("ROLLBACK;") end)
+        error(err)
+    end
+end
+
+function LibraryRepo:getFingerprint(path)
+    local db = self.storage:open()
+    local stmt = db:prepare("SELECT filesize, filemtime FROM books WHERE path = ? AND active = 1;")
+    local row = stmt:reset():bind(path):step()
+    if not row then return nil end
+    return { filesize = tonumber(row[1]), filemtime = tonumber(row[2]) }
+end
+
+function LibraryRepo:countBooks()
+    local db = self.storage:open()
+    return tonumber(db:rowexec("SELECT count(*) FROM books WHERE active = 1;")) or 0
+end
+
+function LibraryRepo:listBooks(limit, offset)
+    local db = self.storage:open()
+    local stmt = db:prepare([[
+        SELECT id, path, title, series, series_index, language, format,
+               filesize, last_read_at, percent_finished, reading_status
+        FROM books
+        WHERE active = 1
+        ORDER BY sort_title, title
+        LIMIT ? OFFSET ?;
+    ]])
+    local rows = {}
+    for row in stmt:reset():bind(limit or 50, offset or 0):rows() do
+        rows[#rows + 1] = {
+            id = row[1], path = row[2], title = row[3], series = row[4],
+            series_index = row[5], language = row[6], format = row[7],
+            filesize = row[8], last_read_at = row[9],
+            percent_finished = row[10], reading_status = row[11],
+        }
+    end
+    return rows
+end
+
+return LibraryRepo
