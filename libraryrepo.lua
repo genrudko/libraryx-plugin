@@ -206,4 +206,163 @@ function LibraryRepo:listBooks(limit, offset)
     return rows
 end
 
+
+function LibraryRepo:countAuthors()
+    local db = self.storage:open()
+    return tonumber(db:rowexec([[
+        SELECT count(DISTINCT a.id)
+        FROM authors a
+        JOIN book_authors ba ON ba.author_id=a.id
+        JOIN books b ON b.id=ba.book_id
+        WHERE b.active=1;
+    ]])) or 0
+end
+
+function LibraryRepo:countSeries()
+    local db = self.storage:open()
+    return tonumber(db:rowexec([[
+        SELECT count(DISTINCT series)
+        FROM books
+        WHERE active=1 AND series IS NOT NULL AND series<>'';
+    ]])) or 0
+end
+
+function LibraryRepo:listAuthors()
+    local db = self.storage:open()
+    local rows = {}
+    local stmt = db:prepare([[
+        SELECT a.id, a.name, count(DISTINCT b.id)
+        FROM authors a
+        JOIN book_authors ba ON ba.author_id=a.id
+        JOIN books b ON b.id=ba.book_id
+        WHERE b.active=1
+        GROUP BY a.id, a.name
+        ORDER BY a.sort_name, a.name;
+    ]])
+    for row in stmt:rows() do
+        rows[#rows + 1] = { id=row[1], name=row[2], count=tonumber(row[3]) or 0 }
+    end
+    return rows
+end
+
+function LibraryRepo:listSeries()
+    local db = self.storage:open()
+    local rows = {}
+    local stmt = db:prepare([[
+        SELECT series, count(*)
+        FROM books
+        WHERE active=1 AND series IS NOT NULL AND series<>''
+        GROUP BY series
+        ORDER BY lower(series), series;
+    ]])
+    for row in stmt:rows() do
+        rows[#rows + 1] = { name=row[1], count=tonumber(row[2]) or 0 }
+    end
+    return rows
+end
+
+function LibraryRepo:listFolders()
+    local db = self.storage:open()
+    local rows = {}
+    local stmt = db:prepare([[
+        SELECT directory, count(*)
+        FROM books
+        WHERE active=1
+        GROUP BY directory
+        ORDER BY lower(directory), directory;
+    ]])
+    for row in stmt:rows() do
+        rows[#rows + 1] = { name=row[1], count=tonumber(row[2]) or 0 }
+    end
+    return rows
+end
+
+function LibraryRepo:listBooksByAuthor(author_id)
+    local db = self.storage:open()
+    local rows = {}
+    local stmt = db:prepare([[
+        SELECT b.id, b.path, b.title, b.series, b.series_index, b.language,
+               b.format, b.filesize, b.last_read_at, b.percent_finished,
+               b.reading_status
+        FROM books b
+        JOIN book_authors ba ON ba.book_id=b.id
+        WHERE b.active=1 AND ba.author_id=?
+        ORDER BY CASE WHEN b.series IS NULL OR b.series='' THEN 1 ELSE 0 END,
+                 lower(b.series), b.series_index, b.sort_title, b.title;
+    ]])
+    for row in stmt:reset():bind(author_id):rows() do
+        rows[#rows + 1] = {
+            id=row[1], path=row[2], title=row[3], series=row[4],
+            series_index=row[5], language=row[6], format=row[7],
+            filesize=row[8], last_read_at=row[9], percent_finished=row[10],
+            reading_status=row[11],
+        }
+    end
+    return rows
+end
+
+function LibraryRepo:listBooksBySeries(series)
+    local db = self.storage:open()
+    local rows = {}
+    local stmt = db:prepare([[
+        SELECT id, path, title, series, series_index, language, format,
+               filesize, last_read_at, percent_finished, reading_status
+        FROM books
+        WHERE active=1 AND series=?
+        ORDER BY series_index, sort_title, title;
+    ]])
+    for row in stmt:reset():bind(series):rows() do
+        rows[#rows + 1] = {
+            id=row[1], path=row[2], title=row[3], series=row[4],
+            series_index=row[5], language=row[6], format=row[7],
+            filesize=row[8], last_read_at=row[9], percent_finished=row[10],
+            reading_status=row[11],
+        }
+    end
+    return rows
+end
+
+function LibraryRepo:listBooksByFolder(folder)
+    local db = self.storage:open()
+    local rows = {}
+    local stmt = db:prepare([[
+        SELECT id, path, title, series, series_index, language, format,
+               filesize, last_read_at, percent_finished, reading_status
+        FROM books
+        WHERE active=1 AND directory=?
+        ORDER BY sort_title, title;
+    ]])
+    for row in stmt:reset():bind(folder):rows() do
+        rows[#rows + 1] = {
+            id=row[1], path=row[2], title=row[3], series=row[4],
+            series_index=row[5], language=row[6], format=row[7],
+            filesize=row[8], last_read_at=row[9], percent_finished=row[10],
+            reading_status=row[11],
+        }
+    end
+    return rows
+end
+
+function LibraryRepo:listRecent(limit)
+    local db = self.storage:open()
+    local rows = {}
+    local stmt = db:prepare([[
+        SELECT id, path, title, series, series_index, language, format,
+               filesize, last_read_at, percent_finished, reading_status
+        FROM books
+        WHERE active=1 AND last_read_at IS NOT NULL
+        ORDER BY last_read_at DESC
+        LIMIT ?;
+    ]])
+    for row in stmt:reset():bind(limit or 100):rows() do
+        rows[#rows + 1] = {
+            id=row[1], path=row[2], title=row[3], series=row[4],
+            series_index=row[5], language=row[6], format=row[7],
+            filesize=row[8], last_read_at=row[9], percent_finished=row[10],
+            reading_status=row[11],
+        }
+    end
+    return rows
+end
+
 return LibraryRepo

@@ -8,12 +8,14 @@ rm -rf "$DIST"
 mkdir -p "$STAGE/docs"
 
 cp "$ROOT"/_meta.lua "$ROOT"/main.lua "$ROOT"/compat.lua \
-   "$ROOT"/state.lua "$ROOT"/storage.lua "$ROOT"/README.md "$STAGE"/
+   "$ROOT"/state.lua "$ROOT"/storage.lua "$ROOT"/model.lua "$ROOT"/libraryrepo.lua \
+   "$ROOT"/indexer.lua "$ROOT"/scanplan.lua "$ROOT"/scanner.lua "$ROOT"/debug.lua \
+   "$ROOT"/debugui.lua "$ROOT"/libraryui.lua "$ROOT"/README.md "$STAGE"/
 cp "$ROOT"/docs/*.md "$STAGE/docs"/
 
 (
   cd "$DIST"
-  zip -qr libraryx-m0.koplugin.zip libraryx.koplugin
+  zip -qr libraryx-debug.koplugin.zip libraryx.koplugin
 )
 
-echo "$DIST/libraryx-m0.koplugin.zip"
+echo "$DIST/libraryx-debug.koplugin.zip"
