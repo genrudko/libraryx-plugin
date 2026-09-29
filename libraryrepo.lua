@@ -16,10 +16,10 @@ end
 
 local function collect_rows(stmt, map)
     local out = {}
-    local row = {}
-    while stmt:step(row) do
+    while true do
+        local row = stmt:step()
+        if not row then break end
         out[#out + 1] = map(row)
-        row = {}
     end
     return out
 end

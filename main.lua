@@ -6,7 +6,7 @@ local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local LibraryRepo = require("libraryrepo")
 local LibraryUI = require("libraryui")
 local Scanner = require("scanner")
-local Debug = require("debug")
+local Debug = require("libraryxdebug")
 local DebugUI = require("debugui")
 local _ = require("gettext")
 
@@ -63,31 +63,68 @@ function LibraryX:scanLibrary()
         return
     end
 
-    local info = InfoMessage:new{
-        text = _("LibraryX is scanning…") .. "\n" .. root,
-    }
-    UIManager:show(info)
-    UIManager:nextTick(function()
+    local Trapper = require("ui/trapper")
+    Trapper:wrap(function()
+        Trapper:setPausedText(_("Library scan paused.\nContinue scanning or abort?"))
+        Trapper:setPausedContinueText(_("Continue"))
+        Trapper:setPausedAbortText(_("Abort"))
+
         Debug.log("scan start", root)
+        if not Trapper:info(_("LibraryX is scanning…\nTap to pause/cancel.\n\n") .. root) then
+            Debug.log("scan cancelled before traversal")
+            return
+        end
+
         local repo = LibraryRepo.new()
         local scanner = Scanner.new(self.ui, repo)
+        local cancelled = false
+        local last_ui_update = 0
+
         local ok, stats = pcall(scanner.scanRoot, scanner, root, {
+            should_cancel = function()
+                return cancelled
+            end,
             on_error = function(path, err)
                 Debug.log("scan error", path, err)
             end,
-            on_progress = function(s, path)
-                if s.visited % 25 == 0 then
-                    Debug.log("scan progress", s.visited, path)
+            on_progress = function(st, path)
+                -- Trapper:info() yields to KOReader's UI loop for ~100 ms.
+                -- Do it every 10 supported files: responsive enough on Kindle
+                -- without making large libraries painfully slow.
+                local processed = st.indexed + st.unchanged + st.errors
+                if processed - last_ui_update >= 10 then
+                    last_ui_update = processed
+                    local text = string.format(
+                        "LibraryX scan\nTap to pause/cancel.\n\nFiles seen: %d\nIndexed: %d\nUnchanged: %d\nErrors: %d\n\n%s",
+                        st.visited, st.indexed, st.unchanged, st.errors, path)
+                    if not Trapper:info(text) then
+                        cancelled = true
+                        Debug.log("scan cancel requested", "visited=" .. st.visited)
+                    end
                 end
             end,
         })
+
         repo.storage:close()
-        UIManager:close(info)
+        Trapper:clear()
 
         if not ok then
             Debug.log("scan fatal", stats)
             UIManager:show(InfoMessage:new{
                 text = _("Library scan failed.") .. "\n" .. tostring(stats),
+            })
+            return
+        end
+
+        if stats.cancelled or cancelled then
+            Debug.log("scan cancelled",
+                "visited=" .. stats.visited,
+                "indexed=" .. stats.indexed,
+                "unchanged=" .. stats.unchanged)
+            UIManager:show(InfoMessage:new{
+                text = string.format(
+                    "LibraryX scan cancelled safely.\n\nFiles seen: %d\nIndexed: %d\nUnchanged: %d\nErrors: %d",
+                    stats.visited, stats.indexed, stats.unchanged, stats.errors),
             })
             return
         end

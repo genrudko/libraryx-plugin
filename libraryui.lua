@@ -3,7 +3,7 @@ local ReaderUI = require("apps/reader/readerui")
 local UIManager = require("ui/uimanager")
 local util = require("util")
 local LibraryRepo = require("libraryrepo")
-local Debug = require("debug")
+local Debug = require("libraryxdebug")
 local _ = require("gettext")
 
 local LibraryUI = {}

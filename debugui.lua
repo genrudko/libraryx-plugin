@@ -1,7 +1,7 @@
 local TextViewer = require("ui/widget/textviewer")
 local UIManager = require("ui/uimanager")
 local LibraryRepo = require("libraryrepo")
-local Debug = require("debug")
+local Debug = require("libraryxdebug")
 local _ = require("gettext")
 
 local DebugUI = {}

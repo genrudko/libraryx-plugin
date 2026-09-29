@@ -16,7 +16,7 @@ test -f scanplan.lua
 test -f scanner.lua
 test -f libraryui.lua
 test -f debugui.lua
-test -f debug.lua
+test -f libraryxdebug.lua
 
 LOCAL_LJ="$(find "$PWD/.tools/luajit" -type f -path '*/bin/luajit*' 2>/dev/null | head -n1 || true)"
 LOCAL_LIBDIR="$(find "$PWD/.tools/luajit" -type f -name 'libluajit-5.1.so.2*' -printf '%h\n' 2>/dev/null | head -n1 || true)"
@@ -34,7 +34,7 @@ fi
 
 echo "[2/4] Lua syntax"
 if [[ -n "$LUA_BIN" ]]; then
-  for f in _meta.lua main.lua compat.lua state.lua storage.lua model.lua libraryrepo.lua indexer.lua scanplan.lua scanner.lua debug.lua debugui.lua libraryui.lua tests/test_state.lua tests/test_model.lua tests/test_scanplan.lua tests/test_scanner.lua tests/test_no_rows_api.lua; do
+  for f in _meta.lua main.lua compat.lua state.lua storage.lua model.lua libraryrepo.lua indexer.lua scanplan.lua scanner.lua libraryxdebug.lua debugui.lua libraryui.lua tests/test_state.lua tests/test_model.lua tests/test_scanplan.lua tests/test_scanner.lua tests/test_no_rows_api.lua tests/test_debug_build_static.lua; do
     "$LUA_BIN" -e "local chunk, err = loadfile([[$f]]) if not chunk then error(err) end"
     echo "syntax OK: $f"
   done
@@ -48,7 +48,7 @@ if [[ -n "$LUA_BIN" ]]; then
   "$LUA_BIN" tests/test_model.lua
   "$LUA_BIN" tests/test_scanplan.lua
   "$LUA_BIN" tests/test_scanner.lua
-  "$LUA_BIN" tests/test_no_rows_api.lua
+  "$LUA_BIN" tests/test_no_rows_api.lua tests/test_debug_build_static.lua
 else
   echo "SKIP: no Lua runtime available"
 fi
