@@ -379,8 +379,8 @@ function LibraryUI:showRoot()
             end,
         },
         {
-            text = L("scan_library"),
-            callback = function() self.plugin:scanLibrary() end,
+            text = L("update_library"),
+            callback = function() self.plugin:scanLibrary(false) end,
         },
         {
             text_func = function()

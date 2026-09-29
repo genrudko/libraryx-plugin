@@ -59,7 +59,7 @@ function LibraryX:chooseLibraryRoot()
     UIManager:show(chooser)
 end
 
-function LibraryX:_scanLibraryWrapped(root)
+function LibraryX:_scanLibraryWrapped(root, force_reindex)
     local Trapper = require("ui/trapper")
     Trapper:setPausedText(L("scan_paused"), L("abort"), L("continue"))
 
@@ -75,6 +75,7 @@ function LibraryX:_scanLibraryWrapped(root)
     local last_ui_update = 0
 
     local ok, stats = pcall(scanner.scanRoot, scanner, root, {
+        force_reindex = force_reindex == true,
         should_cancel = function()
             return cancelled
         end,
@@ -150,7 +151,7 @@ function LibraryX:_scanLibraryWrapped(root)
     })
 end
 
-function LibraryX:scanLibrary()
+function LibraryX:scanLibrary(force_reindex)
     local root = self:getLibraryRoot()
     if not root then
         UIManager:show(InfoMessage:new{
@@ -164,7 +165,7 @@ function LibraryX:scanLibrary()
     local Trapper = require("ui/trapper")
     Trapper:wrap(function()
         local ok, err = xpcall(function()
-            self:_scanLibraryWrapped(root)
+            self:_scanLibraryWrapped(root, force_reindex)
         end, debug.traceback)
         if not ok then
             Debug.log("scan uncaught error", err)
@@ -215,6 +216,13 @@ function LibraryX:showDebugMenu()
                         require("compat").run(self)
                     end,
                 },
+                {
+                    text = L("full_rescan"),
+                    callback = function()
+                        UIManager:close(dialog)
+                        self:scanLibrary(true)
+                    end,
+                },
             },
         },
     }
@@ -231,8 +239,8 @@ function LibraryX:addToMainMenu(menu_items)
                 callback = function() self:openLibrary() end,
             },
             {
-                text = L("scan_library"),
-                callback = function() self:scanLibrary() end,
+                text = L("update_library"),
+                callback = function() self:scanLibrary(false) end,
             },
             {
                 text_func = function()

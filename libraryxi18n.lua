@@ -47,6 +47,9 @@ local strings = {
         unknown_author = "Unknown author",
         sort_current = "Sort",
         internal_error = "LibraryX internal error",
+        update_library = "Update library",
+        full_rescan = "Full rescan",
+        full_rescan_hint = "Re-read metadata for every book",
     },
     ru = {
         libraryx = "LibraryX",
@@ -94,6 +97,9 @@ local strings = {
         unknown_author = "Автор неизвестен",
         sort_current = "Сортировка",
         internal_error = "Внутренняя ошибка LibraryX",
+        update_library = "Обновить библиотеку",
+        full_rescan = "Полное пересканирование",
+        full_rescan_hint = "Заново прочитать метаданные всех книг",
     },
 }
 

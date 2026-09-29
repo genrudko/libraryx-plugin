@@ -35,7 +35,7 @@ package.preload["document/documentregistry"] = function()
     }
 end
 
-package.preload["indexer"] = function() return { new = function() error("not used") end } end
+package.preload["indexer"] = function() return { METADATA_VERSION = 2, new = function() error("not used") end } end
 package.preload["libraryrepo"] = function() return { new = function() error("not used") end } end
 
 local Scanner = require("scanner")
@@ -52,11 +52,18 @@ local repo = {
     setMetadataVersion = function(_, version) assert(version == 2) end,
     getFingerprint = function(_, path)
         if path == "/root/same.epub" then
-            return { filesize = 20, filemtime = 2 }
+            return { filesize = 20, filemtime = 2, metadata_version = 2 }
         elseif path == "/root/sub/changed.fb2" then
-            return { filesize = 30, filemtime = 4 }
+            return { filesize = 30, filemtime = 4, metadata_version = 2 }
         end
     end,
+    getFingerprintMap = function(self)
+        return {
+            ["/root/same.epub"] = { filesize = 20, filemtime = 2, metadata_version = 2 },
+            ["/root/sub/changed.fb2"] = { filesize = 30, filemtime = 4, metadata_version = 2 },
+        }
+    end,
+    adoptExistingRealMetadata = function() end,
     touchUnchanged = function(_, path, file_attrs, token)
         assert(token == 7)
         touched[#touched + 1] = path

@@ -61,9 +61,19 @@ function Scanner:scanRoot(root_path, opts)
     local started_at = os.time()
     local token = self.repo:startScan(root_path, started_at)
     local stats = ScanPlan.newStats()
-    local metadata_version = self.repo.getMetadataVersion
-        and self.repo:getMetadataVersion() or 0
-    local force_metadata_reindex = metadata_version < (Indexer.METADATA_VERSION or 1)
+    local required_metadata_version = Indexer.METADATA_VERSION or 1
+
+    -- Preserve work from the previous partial metadata rebuild. Rows that
+    -- already contain meaningful extracted metadata can be trusted and are
+    -- stamped once with the current extractor version.
+    if self.repo.adoptExistingRealMetadata then
+        self.repo:adoptExistingRealMetadata(required_metadata_version)
+    end
+
+    -- Load all fingerprints in one SQLite query. Normal incremental updates
+    -- then only do filesystem stat calls + Lua table lookups.
+    local fingerprints = self.repo.getFingerprintMap
+        and self.repo:getFingerprintMap(root_path) or {}
 
     local walk_ok, walk_err = walk(root_path, function(path, file_attrs)
         stats.visited = stats.visited + 1
@@ -72,9 +82,12 @@ function Scanner:scanRoot(root_path, opts)
             return
         end
 
-        local fingerprint = not force_metadata_reindex
-            and self.repo:getFingerprint(path) or nil
-        if ScanPlan.sameFingerprint(fingerprint, file_attrs) then
+        local fingerprint = opts.force_reindex and nil
+            or fingerprints[path]
+            or (not self.repo.getFingerprintMap and self.repo:getFingerprint(path))
+        local metadata_current = fingerprint
+            and (tonumber(fingerprint.metadata_version) or 0) >= required_metadata_version
+        if metadata_current and ScanPlan.sameFingerprint(fingerprint, file_attrs) then
             self.repo:touchUnchanged(
                 path, file_attrs, token, started_at, self.indexer:readState(path))
             stats.unchanged = stats.unchanged + 1
@@ -107,8 +120,8 @@ function Scanner:scanRoot(root_path, opts)
     end
 
     self.repo:finishScan(root_path, token, os.time())
-    if force_metadata_reindex and self.repo.setMetadataVersion then
-        self.repo:setMetadataVersion(Indexer.METADATA_VERSION or 1)
+    if self.repo.setMetadataVersion then
+        self.repo:setMetadataVersion(required_metadata_version)
     end
     return stats
 end

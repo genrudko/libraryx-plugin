@@ -66,6 +66,7 @@ function Indexer:indexFile(path, scan_token, scanned_at)
 
     local read_state = self:readState(path)
     read_state.scan_token = scan_token
+    read_state.metadata_version = METADATA_VERSION
     local book = Model.bookRecord(path, attrs, props, read_state, scanned_at or os.time())
     self.repo:upsertBook(book)
     return true, book

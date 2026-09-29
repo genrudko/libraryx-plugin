@@ -5,7 +5,7 @@ local SQ3 = require("lua-ljsqlite3/init")
 local Storage = {}
 Storage.__index = Storage
 
-local SCHEMA_VERSION = 2
+local SCHEMA_VERSION = 3
 
 local SCHEMA = [[
 CREATE TABLE IF NOT EXISTS meta (
@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS books (
     filemtime INTEGER,
     scanned_at INTEGER NOT NULL,
     scan_token INTEGER,
+    metadata_version INTEGER NOT NULL DEFAULT 0,
     title TEXT,
     sort_title TEXT,
     language TEXT,
@@ -104,6 +105,22 @@ CREATE INDEX IF NOT EXISTS idx_book_genres_genre
     ON book_genres(genre_id, book_id);
 ]]
 
+local function ensureBooksMetadataVersion(db)
+    local has_column = false
+    local stmt = db:prepare("PRAGMA table_info(books);")
+    while true do
+        local row = stmt:step()
+        if not row then break end
+        if row[2] == "metadata_version" then
+            has_column = true
+            break
+        end
+    end
+    if not has_column then
+        db:exec("ALTER TABLE books ADD COLUMN metadata_version INTEGER NOT NULL DEFAULT 0;")
+    end
+end
+
 function Storage.new(path)
     return setmetatable({
         path = path or (DataStorage:getSettingsDir() .. "/libraryx.sqlite3"),
@@ -121,6 +138,7 @@ function Storage:open()
     end
     self.db:exec("PRAGMA foreign_keys=ON;")
     self.db:exec(SCHEMA)
+    ensureBooksMetadataVersion(self.db)
     self.db:exec(string.format("PRAGMA user_version=%d;", SCHEMA_VERSION))
     return self.db
 end

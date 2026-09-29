@@ -32,10 +32,10 @@ function LibraryRepo:upsertBook(book)
         local stmt = db:prepare([[
             INSERT INTO books (
                 path, directory, filename, filesize, filemtime, scanned_at, scan_token,
-                title, sort_title, language, series, series_index, description,
+                metadata_version, title, sort_title, language, series, series_index, description,
                 format, active, last_read_at, percent_finished, reading_status
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(path) DO UPDATE SET
                 directory=excluded.directory,
                 filename=excluded.filename,
@@ -43,6 +43,7 @@ function LibraryRepo:upsertBook(book)
                 filemtime=excluded.filemtime,
                 scanned_at=excluded.scanned_at,
                 scan_token=excluded.scan_token,
+                metadata_version=excluded.metadata_version,
                 title=excluded.title,
                 sort_title=excluded.sort_title,
                 language=excluded.language,
@@ -57,7 +58,8 @@ function LibraryRepo:upsertBook(book)
         ]])
         step_done(stmt,
             book.path, book.directory, book.filename, book.filesize, book.filemtime,
-            book.scanned_at, book.scan_token, book.title, book.sort_title, book.language,
+            book.scanned_at, book.scan_token, book.metadata_version,
+            book.title, book.sort_title, book.language,
             book.series, book.series_index, book.description, book.format, book.active,
             book.last_read_at, book.percent_finished, book.reading_status)
 
@@ -185,10 +187,61 @@ end
 
 function LibraryRepo:getFingerprint(path)
     local db = self.storage:open()
-    local stmt = db:prepare("SELECT filesize, filemtime FROM books WHERE path = ? AND active = 1;")
+    local stmt = db:prepare([[
+        SELECT filesize, filemtime, metadata_version
+        FROM books WHERE path = ? AND active = 1;
+    ]])
     local row = stmt:reset():bind(path):step()
     if not row then return nil end
-    return { filesize = tonumber(row[1]), filemtime = tonumber(row[2]) }
+    return {
+        filesize = tonumber(row[1]),
+        filemtime = tonumber(row[2]),
+        metadata_version = tonumber(row[3]) or 0,
+    }
+end
+
+function LibraryRepo:getFingerprintMap(root_path)
+    local db = self.storage:open()
+    local prefix = root_path
+    if prefix:sub(-1) ~= "/" then prefix = prefix .. "/" end
+    local stmt = db:prepare([[
+        SELECT path, filesize, filemtime, metadata_version
+        FROM books
+        WHERE active=1 AND substr(path, 1, ?) = ?;
+    ]])
+    stmt:reset():bind(#prefix, prefix)
+    local map = {}
+    while true do
+        local row = stmt:step()
+        if not row then break end
+        map[row[1]] = {
+            filesize = tonumber(row[2]),
+            filemtime = tonumber(row[3]),
+            metadata_version = tonumber(row[4]) or 0,
+        }
+    end
+    return map
+end
+
+function LibraryRepo:adoptExistingRealMetadata(version)
+    local db = self.storage:open()
+    local stmt = db:prepare([[
+        UPDATE books
+        SET metadata_version=?
+        WHERE metadata_version < ?
+          AND (
+              (series IS NOT NULL AND series <> '')
+              OR (language IS NOT NULL AND language <> '')
+              OR (description IS NOT NULL AND description <> '')
+              OR EXISTS (
+                  SELECT 1 FROM book_authors ba WHERE ba.book_id=books.id
+              )
+              OR EXISTS (
+                  SELECT 1 FROM book_genres bg WHERE bg.book_id=books.id
+              )
+          );
+    ]])
+    step_done(stmt, version, version)
 end
 
 function LibraryRepo:countBooks()
