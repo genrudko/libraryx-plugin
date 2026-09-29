@@ -43,16 +43,20 @@ function Compat.run(plugin)
         return p
     end)
 
-    local _, BookList = probe("BookList API", function()
+    local BookList
+    probe("BookList API", function()
         local mod = require("ui/widget/booklist")
         assert(type(mod.getBookInfo) == "function", "getBookInfo missing")
         assert(type(mod.getBookStatus) == "function", "getBookStatus missing")
+        BookList = mod
         return "progress/status available"
     end)
 
-    local _, ReadHistory = probe("ReadHistory API", function()
+    local ReadHistory
+    probe("ReadHistory API", function()
         local mod = require("readhistory")
         assert(type(mod.hist) == "table", "history table missing")
+        ReadHistory = mod
         return string.format("%d history entries", #mod.hist)
     end)
 
