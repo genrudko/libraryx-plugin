@@ -1,0 +1,6 @@
+*.sqlite3
+*.sqlite3-*
+*.zip
+*.log
+.tmp/
+dist/
