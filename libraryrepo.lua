@@ -338,9 +338,30 @@ end
 function LibraryRepo:listBooksByAuthor(author_id)
     local db = self.storage:open()
     local stmt = db:prepare([[
-        SELECT b.id, b.path, b.title, b.series, b.series_index, b.language,
-               b.format, b.filesize, b.last_read_at, b.percent_finished,
-               b.reading_status
+        SELECT
+            b.id, b.path, b.title, b.series, b.series_index, b.language,
+            b.format, b.filesize, b.last_read_at, b.percent_finished,
+            b.reading_status, b.filemtime, b.filemtime,
+            COALESCE((
+                SELECT group_concat(x.name, char(10))
+                FROM (
+                    SELECT a.name AS name
+                    FROM book_authors ba2
+                    JOIN authors a ON a.id=ba2.author_id
+                    WHERE ba2.book_id=b.id
+                    ORDER BY ba2.ordinal
+                ) x
+            ), '') AS authors,
+            COALESCE((
+                SELECT group_concat(y.name, char(10))
+                FROM (
+                    SELECT g.name AS name
+                    FROM book_genres bg2
+                    JOIN genres g ON g.id=bg2.genre_id
+                    WHERE bg2.book_id=b.id
+                    ORDER BY g.name
+                ) y
+            ), '') AS genres
         FROM books b
         JOIN book_authors ba ON ba.book_id=b.id
         WHERE b.active=1 AND ba.author_id=?
@@ -354,6 +375,7 @@ function LibraryRepo:listBooksByAuthor(author_id)
             series_index=tonumber(row[5]), language=row[6], format=row[7],
             filesize=tonumber(row[8]), last_read_at=tonumber(row[9]),
             percent_finished=tonumber(row[10]), reading_status=row[11],
+            filemtime=tonumber(row[12]), authors=row[13] or "", genres=row[14] or "",
         }
     end)
 end
@@ -361,11 +383,34 @@ end
 function LibraryRepo:listBooksBySeries(series)
     local db = self.storage:open()
     local stmt = db:prepare([[
-        SELECT id, path, title, series, series_index, language, format,
-               filesize, last_read_at, percent_finished, reading_status
-        FROM books
-        WHERE active=1 AND series=?
-        ORDER BY series_index, sort_title, title;
+        SELECT
+            b.id, b.path, b.title, b.series, b.series_index, b.language,
+            b.format, b.filesize, b.last_read_at, b.percent_finished,
+            b.reading_status, b.filemtime,
+            COALESCE((
+                SELECT group_concat(x.name, char(10))
+                FROM (
+                    SELECT a.name AS name
+                    FROM book_authors ba2
+                    JOIN authors a ON a.id=ba2.author_id
+                    WHERE ba2.book_id=b.id
+                    ORDER BY ba2.ordinal
+                ) x
+            ), '') AS authors,
+            COALESCE((
+                SELECT group_concat(y.name, char(10))
+                FROM (
+                    SELECT g.name AS name
+                    FROM book_genres bg2
+                    JOIN genres g ON g.id=bg2.genre_id
+                    WHERE bg2.book_id=b.id
+                    ORDER BY g.name
+                ) y
+            ), '') AS genres
+        FROM books b
+        WHERE b.active=1 AND b.series=?
+        ORDER BY CASE WHEN b.series_index IS NULL THEN 1 ELSE 0 END,
+                 b.series_index, b.sort_title, b.title;
     ]])
     stmt:reset():bind(series)
     return collect_rows(stmt, function(row)
@@ -374,6 +419,7 @@ function LibraryRepo:listBooksBySeries(series)
             series_index=tonumber(row[5]), language=row[6], format=row[7],
             filesize=tonumber(row[8]), last_read_at=tonumber(row[9]),
             percent_finished=tonumber(row[10]), reading_status=row[11],
+            filemtime=tonumber(row[12]), authors=row[13] or "", genres=row[14] or "",
         }
     end)
 end
@@ -381,11 +427,33 @@ end
 function LibraryRepo:listBooksByFolder(folder)
     local db = self.storage:open()
     local stmt = db:prepare([[
-        SELECT id, path, title, series, series_index, language, format,
-               filesize, last_read_at, percent_finished, reading_status
-        FROM books
-        WHERE active=1 AND directory=?
-        ORDER BY sort_title, title;
+        SELECT
+            b.id, b.path, b.title, b.series, b.series_index, b.language,
+            b.format, b.filesize, b.last_read_at, b.percent_finished,
+            b.reading_status, b.filemtime,
+            COALESCE((
+                SELECT group_concat(x.name, char(10))
+                FROM (
+                    SELECT a.name AS name
+                    FROM book_authors ba2
+                    JOIN authors a ON a.id=ba2.author_id
+                    WHERE ba2.book_id=b.id
+                    ORDER BY ba2.ordinal
+                ) x
+            ), '') AS authors,
+            COALESCE((
+                SELECT group_concat(y.name, char(10))
+                FROM (
+                    SELECT g.name AS name
+                    FROM book_genres bg2
+                    JOIN genres g ON g.id=bg2.genre_id
+                    WHERE bg2.book_id=b.id
+                    ORDER BY g.name
+                ) y
+            ), '') AS genres
+        FROM books b
+        WHERE b.active=1 AND b.directory=?
+        ORDER BY b.sort_title, b.title;
     ]])
     stmt:reset():bind(folder)
     return collect_rows(stmt, function(row)
@@ -394,6 +462,7 @@ function LibraryRepo:listBooksByFolder(folder)
             series_index=tonumber(row[5]), language=row[6], format=row[7],
             filesize=tonumber(row[8]), last_read_at=tonumber(row[9]),
             percent_finished=tonumber(row[10]), reading_status=row[11],
+            filemtime=tonumber(row[12]), authors=row[13] or "", genres=row[14] or "",
         }
     end)
 end
@@ -401,11 +470,33 @@ end
 function LibraryRepo:listRecent(limit)
     local db = self.storage:open()
     local stmt = db:prepare([[
-        SELECT id, path, title, series, series_index, language, format,
-               filesize, last_read_at, percent_finished, reading_status
-        FROM books
-        WHERE active=1 AND last_read_at IS NOT NULL
-        ORDER BY last_read_at DESC
+        SELECT
+            b.id, b.path, b.title, b.series, b.series_index, b.language,
+            b.format, b.filesize, b.last_read_at, b.percent_finished,
+            b.reading_status, b.filemtime,
+            COALESCE((
+                SELECT group_concat(x.name, char(10))
+                FROM (
+                    SELECT a.name AS name
+                    FROM book_authors ba2
+                    JOIN authors a ON a.id=ba2.author_id
+                    WHERE ba2.book_id=b.id
+                    ORDER BY ba2.ordinal
+                ) x
+            ), '') AS authors,
+            COALESCE((
+                SELECT group_concat(y.name, char(10))
+                FROM (
+                    SELECT g.name AS name
+                    FROM book_genres bg2
+                    JOIN genres g ON g.id=bg2.genre_id
+                    WHERE bg2.book_id=b.id
+                    ORDER BY g.name
+                ) y
+            ), '') AS genres
+        FROM books b
+        WHERE b.active=1 AND b.last_read_at IS NOT NULL
+        ORDER BY b.last_read_at DESC
         LIMIT ?;
     ]])
     stmt:reset():bind(limit or 100)
@@ -415,10 +506,10 @@ function LibraryRepo:listRecent(limit)
             series_index=tonumber(row[5]), language=row[6], format=row[7],
             filesize=tonumber(row[8]), last_read_at=tonumber(row[9]),
             percent_finished=tonumber(row[10]), reading_status=row[11],
+            filemtime=tonumber(row[12]), authors=row[13] or "", genres=row[14] or "",
         }
     end)
 end
-
 
 function LibraryRepo:getMetadataVersion()
     local db = self.storage:open()
@@ -441,7 +532,7 @@ function LibraryRepo:listCatalogBooks(limit, offset)
         SELECT
             b.id, b.path, b.title, b.series, b.series_index, b.language,
             b.format, b.filesize, b.last_read_at, b.percent_finished,
-            b.reading_status,
+            b.reading_status, b.filemtime,
             COALESCE((
                 SELECT group_concat(x.name, char(10))
                 FROM (
@@ -474,7 +565,7 @@ function LibraryRepo:listCatalogBooks(limit, offset)
             series_index=tonumber(row[5]), language=row[6], format=row[7],
             filesize=tonumber(row[8]), last_read_at=tonumber(row[9]),
             percent_finished=tonumber(row[10]), reading_status=row[11],
-            authors=row[12] or "", genres=row[13] or "",
+            filemtime=tonumber(row[12]), authors=row[13] or "", genres=row[14] or "",
         }
     end)
 end
