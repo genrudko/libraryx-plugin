@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 cd "$(dirname "$0")/.."
 
 echo "[1/4] repository layout"
@@ -9,25 +10,33 @@ test -f compat.lua
 test -f state.lua
 test -f storage.lua
 
-echo "[2/4] Lua syntax"
-if command -v luac >/dev/null 2>&1; then
-  for f in _meta.lua main.lua compat.lua state.lua storage.lua tests/test_state.lua; do
-    luac -p "$f"
-  done
-elif command -v luajit >/dev/null 2>&1; then
-  for f in _meta.lua main.lua compat.lua state.lua storage.lua tests/test_state.lua; do
-    luajit -b "$f" /tmp/libraryx-check.out
-  done
-  rm -f /tmp/libraryx-check.out
+LOCAL_LJ="$(find "$PWD/.tools/luajit" -type f -path '*/bin/luajit*' 2>/dev/null | head -n1 || true)"
+LOCAL_LIBDIR="$(find "$PWD/.tools/luajit" -type f -name 'libluajit-5.1.so.2*' -printf '%h\n' 2>/dev/null | head -n1 || true)"
+
+if command -v luajit >/dev/null 2>&1; then
+  LUA_BIN="$(command -v luajit)"
+elif [[ -n "$LOCAL_LJ" ]]; then
+  LUA_BIN="$LOCAL_LJ"
+  export LD_LIBRARY_PATH="$LOCAL_LIBDIR"
+elif command -v lua >/dev/null 2>&1; then
+  LUA_BIN="$(command -v lua)"
 else
-  echo "SKIP: no luac/luajit available"
+  LUA_BIN=""
+fi
+
+echo "[2/4] Lua syntax"
+if [[ -n "$LUA_BIN" ]]; then
+  for f in _meta.lua main.lua compat.lua state.lua storage.lua tests/test_state.lua; do
+    "$LUA_BIN" -e "local chunk, err = loadfile([[$f]]) if not chunk then error(err) end"
+    echo "syntax OK: $f"
+  done
+else
+  echo "SKIP: no Lua runtime available"
 fi
 
 echo "[3/4] pure-Lua state test"
-if command -v lua >/dev/null 2>&1; then
-  lua tests/test_state.lua
-elif command -v luajit >/dev/null 2>&1; then
-  luajit tests/test_state.lua
+if [[ -n "$LUA_BIN" ]]; then
+  "$LUA_BIN" tests/test_state.lua
 else
   echo "SKIP: no Lua runtime available"
 fi
