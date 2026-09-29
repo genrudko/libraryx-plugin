@@ -60,6 +60,12 @@ local strings = {
         sort_series_index = "By series number",
         reverse_order = "Reverse order",
         normal_order = "Normal order",
+        read_book = "Read book",
+        book_information = "Book information",
+        go_to = "Go to…",
+        go_to_author = "Author",
+        go_to_series = "Series",
+        go_to_folder = "Folder",
     },
     ru = {
         libraryx = "LibraryX",
@@ -120,6 +126,12 @@ local strings = {
         sort_series_index = "По номеру в серии",
         reverse_order = "Обратный порядок",
         normal_order = "Обычный порядок",
+        read_book = "Читать книгу",
+        book_information = "Информация о книге",
+        go_to = "Перейти к…",
+        go_to_author = "Автору",
+        go_to_series = "Серии",
+        go_to_folder = "Папке",
     },
 }
 

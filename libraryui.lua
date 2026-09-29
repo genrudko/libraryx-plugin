@@ -135,10 +135,41 @@ function LibraryUI:bookSearchText(book)
     }, "\n")
 end
 
-function LibraryUI:toBookListItems(books)
+function LibraryUI:toBookListItems(books, opts)
+    opts = opts or {}
     local items = {}
+    local display_meta = {}
+
     for _, book in ipairs(books) do
         local b = book
+        local authors = (b.authors and b.authors ~= "")
+            and b.authors:gsub("\n", ", ")
+            or L("unknown_author")
+
+        local context = {}
+        if opts.series_context and b.series_index then
+            context[#context + 1] = "#" .. tostring(b.series_index)
+        end
+        if b.language and b.language ~= "" then
+            context[#context + 1] = b.language:upper()
+        end
+        if b.genres and b.genres ~= "" then
+            context[#context + 1] = b.genres:gsub("\n", ", ")
+        end
+
+        local authors_and_meta = authors
+        if #context > 0 then
+            authors_and_meta = authors_and_meta .. "\n" .. table.concat(context, ", ")
+        end
+
+        display_meta[b.path] = {
+            title = b.title,
+            authors = authors_and_meta,
+            series = nil,
+            series_index = nil,
+            language = b.language,
+        }
+
         items[#items + 1] = {
             text = b.title or b.path,
             path = b.path,
@@ -155,7 +186,7 @@ function LibraryUI:toBookListItems(books)
             callback = function() end,
         }
     end
-    return items
+    return items, display_meta
 end
 
 function LibraryUI:openBook(menu, book)
@@ -164,6 +195,122 @@ function LibraryUI:openBook(menu, book)
     UIManager:nextTick(function()
         ReaderUI:showReader(book.path)
     end)
+end
+
+function LibraryUI:findAuthorByName(name)
+    if not name or name == "" then return nil end
+    for _, author in ipairs(self.repo:listAuthors()) do
+        if author.name == name then return author end
+    end
+end
+
+function LibraryUI:showBookInfo(book)
+    local bookinfo = self.plugin.ui and self.plugin.ui.bookinfo
+    if not bookinfo then return end
+    local props = bookinfo:getDocProps(book.path, nil, true)
+    if props and bookinfo.extendProps then
+        props = bookinfo.extendProps(props, book.path)
+    end
+    bookinfo:show(book.path, props)
+end
+
+function LibraryUI:showGoTo(book)
+    local dialog
+    local buttons = {}
+
+    local first_author = first_value(book.authors)
+    local author = self:findAuthorByName(first_author)
+    if author then
+        buttons[#buttons + 1] = {
+            {
+                text = L("go_to_author"),
+                callback = function()
+                    UIManager:close(dialog)
+                    self:showAuthor(author)
+                end,
+            },
+        }
+    end
+
+    if book.series and book.series ~= "" then
+        buttons[#buttons + 1] = {
+            {
+                text = L("go_to_series"),
+                callback = function()
+                    UIManager:close(dialog)
+                    self:showSeriesBooks(
+                        L("series") .. " / " .. book.series,
+                        self.repo:listBooksBySeries(book.series))
+                end,
+            },
+        }
+    end
+
+    local folder = select(1, util.splitFilePathName(book.path))
+    if folder and folder ~= "" then
+        buttons[#buttons + 1] = {
+            {
+                text = L("go_to_folder"),
+                callback = function()
+                    UIManager:close(dialog)
+                    local books = self.repo:listBooksByFolder(folder)
+                    self:showBooks(L("folders") .. " / " .. folder, books, {
+                        sort_mode = SORT_TITLE,
+                        reverse = false,
+                        reload = function(new_mode, new_reverse)
+                            self:showBooks(L("folders") .. " / " .. folder, books, {
+                                sort_mode = new_mode,
+                                reverse = new_reverse,
+                                reload = function() end,
+                            })
+                        end,
+                    })
+                end,
+            },
+        }
+    end
+
+    if #buttons == 0 then return end
+    dialog = ButtonDialog:new{
+        title = L("go_to"),
+        buttons = buttons,
+    }
+    UIManager:show(dialog)
+end
+
+function LibraryUI:showBookActions(menu, book)
+    local dialog
+    dialog = ButtonDialog:new{
+        title = book.title or "",
+        buttons = {
+            {
+                {
+                    text = L("read_book"),
+                    callback = function()
+                        UIManager:close(dialog)
+                        self:openBook(menu, book)
+                    end,
+                },
+                {
+                    text = L("book_information"),
+                    callback = function()
+                        UIManager:close(dialog)
+                        self:showBookInfo(book)
+                    end,
+                },
+            },
+            {
+                {
+                    text = L("go_to"),
+                    callback = function()
+                        UIManager:close(dialog)
+                        self:showGoTo(book)
+                    end,
+                },
+            },
+        },
+    }
+    UIManager:show(dialog)
 end
 
 function LibraryUI:showSortDialog(menu, opts)
@@ -225,7 +372,9 @@ function LibraryUI:showBooks(title, books, opts)
 
     self:sortBooks(books, mode, reverse)
 
-    local items = self:toBookListItems(books)
+    local items, display_meta = self:toBookListItems(books, {
+        series_context = opts.series_context == true,
+    })
     local menu
 
     local function reload(new_mode, new_reverse)
@@ -239,14 +388,13 @@ function LibraryUI:showBooks(title, books, opts)
     menu = AlReaderBookList:new{
         title = title,
         item_table = items,
-        sort_label = self:sortLabel(mode),
+        libraryx_display_metadata = display_meta,
+        sort_label = self:sortLabel(mode) .. (reverse and " ↓" or ""),
         onMenuSelect = function(_, item)
             self:openBook(menu, item.libraryx_book)
         end,
         onMenuHold = function(_, item)
-            -- Context actions are the next UI slice; for now holding opens the book,
-            -- which is safer than silently doing nothing on Kindle.
-            self:openBook(menu, item.libraryx_book)
+            self:showBookActions(menu, item.libraryx_book)
         end,
         onSortTap = function()
             self:showSortDialog(menu, {
@@ -284,6 +432,7 @@ function LibraryUI:showSeriesBooks(title, books, reverse)
     self:showBooks(title, books, {
         locked_sort = SORT_SERIES_INDEX,
         reverse = reverse == true,
+        series_context = true,
         reload = function(_, new_reverse)
             self:showSeriesBooks(title, books, new_reverse)
         end,

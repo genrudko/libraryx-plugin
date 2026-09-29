@@ -50,7 +50,7 @@ function AlReaderBookList:init()
 
     -- Then replace only the list renderer with KOReader's optimized CoverBrowser
     -- renderer. It already handles lazy cover extraction and e-ink repainting.
-    local ok, err = CoverBridge.patch(self)
+    local ok, err = CoverBridge.patch(self, self.libraryx_display_metadata)
     if not ok then
         Debug.log("cover bridge failed", err)
     end
