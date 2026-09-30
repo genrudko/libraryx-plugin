@@ -102,6 +102,11 @@ local strings = {
         description_label = "Description",
         not_read = "Not read yet",
         no_description = "No description",
+        list_scale = "List scale",
+        scale_large = "Large · 3 books",
+        scale_normal = "Normal · 4 books",
+        scale_compact = "Compact · 5 books",
+        scale_dense = "Dense · 6 books",
     },
     ru = {
         libraryx = "LibraryX",
@@ -204,6 +209,11 @@ local strings = {
         description_label = "Аннотация",
         not_read = "Ещё не читалась",
         no_description = "Аннотация отсутствует",
+        list_scale = "Масштаб списка",
+        scale_large = "Крупно · 3 книги",
+        scale_normal = "Обычно · 4 книги",
+        scale_compact = "Компактно · 5 книг",
+        scale_dense = "Плотно · 6 книг",
     },
 }
 

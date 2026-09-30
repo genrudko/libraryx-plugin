@@ -93,7 +93,10 @@ function SafeCardBridge.patch(menu, display_meta)
     menu._updateItemsBuildUI = modules.ListMenu._updateItemsBuildUI
 
     menu.display_mode_type = "list"
-    menu.files_per_page = 4
+    menu.files_per_page = tonumber(menu.libraryx_files_per_page)
+        or tonumber(menu.files_per_page)
+        or tonumber(G_reader_settings:readSetting("libraryx_cards_per_page"))
+        or 4
 
     -- Important: this does NOT request real covers. Fake BookInfoManager always
     -- reports cover_fetched=true + has_cover=false, so ListMenu draws its own

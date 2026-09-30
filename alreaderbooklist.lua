@@ -11,6 +11,17 @@ local SafeCardBridge = require("safecardbridge")
 local Debug = require("libraryxdebug")
 local L = require("libraryxi18n").t
 
+local CARDS_PER_PAGE_KEY = "libraryx_cards_per_page"
+local DEFAULT_CARDS_PER_PAGE = 4
+local MIN_CARDS_PER_PAGE = 3
+local MAX_CARDS_PER_PAGE = 6
+
+local function cardsPerPage()
+    local value = tonumber(G_reader_settings:readSetting(CARDS_PER_PAGE_KEY))
+        or DEFAULT_CARDS_PER_PAGE
+    return math.max(MIN_CARDS_PER_PAGE, math.min(MAX_CARDS_PER_PAGE, value))
+end
+
 local AlReaderBookList = BookList:extend{
     name = "libraryx_books",
     covers_fullscreen = true,
@@ -24,6 +35,7 @@ end
 
 function AlReaderBookList:init()
     Debug.log("booklist init begin", self.title or "", "items=" .. tostring(#(self.item_table or {})))
+    self.files_per_page = tonumber(self.libraryx_files_per_page) or cardsPerPage()
     self.full_item_table = self.item_table or {}
     self.current_query = nil
 
@@ -78,39 +90,99 @@ function AlReaderBookList:installAlReaderFooter()
     local WidgetContainer = require("ui/widget/container/widgetcontainer")
     WidgetContainer.clear(self.page_info, true)
 
-    local side_w = math.floor(Screen:getWidth() * 0.15)
-    local center_w = Screen:getWidth() - 2 * side_w
+    -- Keep the sort label dominant, but reserve real page-turn buttons.
+    -- Percentages intentionally match the compact AlReader bottom bar.
+    local screen_w = Screen:getWidth()
+    local more_w = math.floor(screen_w * 0.07)
+    local nav_w = math.floor(screen_w * 0.09)
+    local close_w = math.floor(screen_w * 0.07)
+    local center_w = screen_w - more_w - nav_w - nav_w - close_w
+
+    local common = {
+        bordersize = 0,
+        padding = 0,
+        padding_h = 0,
+        padding_v = 0,
+    }
 
     self.footer_more = Button:new{
         text = "⋮",
-        width = side_w,
-        bordersize = 0,
+        width = more_w,
+        bordersize = common.bordersize,
+        padding = common.padding,
+        padding_h = common.padding_h,
+        padding_v = common.padding_v,
+        text_font_size = 18,
+        text_font_bold = false,
         callback = function()
             if self.onMoreTap then self.onMoreTap(self) end
+        end,
+    }
+
+    self.footer_prev = Button:new{
+        text = "‹",
+        width = nav_w,
+        bordersize = common.bordersize,
+        padding = common.padding,
+        padding_h = common.padding_h,
+        padding_v = common.padding_v,
+        text_font_size = 24,
+        text_font_bold = false,
+        callback = function()
+            if self.page > 1 then
+                self:onGotoPage(self.page - 1)
+            end
         end,
     }
 
     self.footer_sort = Button:new{
         text = "",
         width = center_w,
-        bordersize = 0,
+        bordersize = common.bordersize,
+        padding = common.padding,
+        padding_h = common.padding_h,
+        padding_v = common.padding_v,
+        text_font_size = 13,
         text_font_bold = false,
         callback = function()
             if self.onSortTap then self.onSortTap(self) end
         end,
     }
 
+    self.footer_next = Button:new{
+        text = "›",
+        width = nav_w,
+        bordersize = common.bordersize,
+        padding = common.padding,
+        padding_h = common.padding_h,
+        padding_v = common.padding_v,
+        text_font_size = 24,
+        text_font_bold = false,
+        callback = function()
+            if self.page < self.page_num then
+                self:onGotoPage(self.page + 1)
+            end
+        end,
+    }
+
     self.footer_close = Button:new{
         text = "×",
-        width = side_w,
-        bordersize = 0,
+        width = close_w,
+        bordersize = common.bordersize,
+        padding = common.padding,
+        padding_h = common.padding_h,
+        padding_v = common.padding_v,
+        text_font_size = 18,
+        text_font_bold = false,
         callback = function()
             closeWidget(self)
         end,
     }
 
     table.insert(self.page_info, self.footer_more)
+    table.insert(self.page_info, self.footer_prev)
     table.insert(self.page_info, self.footer_sort)
+    table.insert(self.page_info, self.footer_next)
     table.insert(self.page_info, self.footer_close)
     self:updateAlReaderFooter()
 end
@@ -125,6 +197,13 @@ function AlReaderBookList:updateAlReaderFooter()
     self.footer_sort:setText(string.format(
         "%s\n%s\n%d-%d",
         L("sort"), label, first, last))
+
+    if self.footer_prev then
+        if self.page > 1 then self.footer_prev:enable() else self.footer_prev:disable() end
+    end
+    if self.footer_next then
+        if self.page < self.page_num then self.footer_next:enable() else self.footer_next:disable() end
+    end
 end
 
 function AlReaderBookList:updatePageInfo(select_number)

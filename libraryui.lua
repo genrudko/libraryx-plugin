@@ -561,7 +561,46 @@ function LibraryUI:showAlphabet(menu, books, mode)
     UIManager:show(dialog)
 end
 
-function LibraryUI:showBookListMore(menu, books, mode)
+function LibraryUI:showListScaleDialog(menu, recreate)
+    local current = tonumber(G_reader_settings:readSetting("libraryx_cards_per_page")) or 4
+    local dialog
+
+    local function choose(count)
+        G_reader_settings:saveSetting("libraryx_cards_per_page", count)
+        UIManager:close(dialog)
+        if menu then UIManager:close(menu) end
+        if recreate then recreate() end
+    end
+
+    dialog = ButtonDialog:new{
+        title = L("list_scale"),
+        buttons = {
+            {
+                {
+                    text = L("scale_large") .. (current == 3 and " ✓" or ""),
+                    callback = function() choose(3) end,
+                },
+                {
+                    text = L("scale_normal") .. (current == 4 and " ✓" or ""),
+                    callback = function() choose(4) end,
+                },
+            },
+            {
+                {
+                    text = L("scale_compact") .. (current == 5 and " ✓" or ""),
+                    callback = function() choose(5) end,
+                },
+                {
+                    text = L("scale_dense") .. (current == 6 and " ✓" or ""),
+                    callback = function() choose(6) end,
+                },
+            },
+        },
+    }
+    UIManager:show(dialog)
+end
+
+function LibraryUI:showBookListMore(menu, books, mode, recreate)
     local dialog
     dialog = ButtonDialog:new{
         title = L("more"),
@@ -573,6 +612,13 @@ function LibraryUI:showBookListMore(menu, books, mode)
                     callback = function()
                         UIManager:close(dialog)
                         self:showAlphabet(menu, books, mode)
+                    end,
+                },
+                {
+                    text = L("list_scale"),
+                    callback = function()
+                        UIManager:close(dialog)
+                        self:showListScaleDialog(menu, recreate)
                     end,
                 },
             },
@@ -679,7 +725,9 @@ function LibraryUI:_showBooks(title, books, opts)
             })
         end,
         onMoreTap = function()
-            self:showBookListMore(menu, books, mode)
+            self:showBookListMore(menu, books, mode, function()
+                opts.reload(mode, reverse)
+            end)
         end,
     }
     self.menus[#self.menus + 1] = menu
@@ -816,7 +864,9 @@ function LibraryUI:showSeriesBooks(title, books, sort_mode, reverse)
             self:showSeriesSortDialog(menu, title, books, mode, reverse)
         end,
         onMoreTap = function()
-            self:showBookListMore(menu, books, mode)
+            self:showBookListMore(menu, books, mode, function()
+                self:showSeriesBooks(title, books, mode, reverse)
+            end)
         end,
     }
 
