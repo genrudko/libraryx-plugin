@@ -112,6 +112,50 @@ function AlReaderBookList:init()
     Debug.log("booklist initial render ok", self.title or "")
 end
 
+function AlReaderBookList:showFooterMenu()
+    local dialog
+    local current = tonumber(G_reader_settings:readSetting(CARDS_PER_PAGE_KEY))
+        or tonumber(self.files_per_page)
+        or DEFAULT_CARDS_PER_PAGE
+
+    local function choose(count)
+        G_reader_settings:saveSetting(CARDS_PER_PAGE_KEY, count)
+        self.files_per_page = count
+        if dialog then UIManager:close(dialog) end
+        Debug.log("footer scale selected", tostring(count), self.title or "")
+        -- Rebuild this exact list in-place. This avoids depending on any
+        -- external LibraryUI callback just to make the ⋮ menu functional.
+        self:updateItems(1)
+    end
+
+    dialog = ButtonDialog:new{
+        title = L("list_settings"),
+        buttons = {
+            {
+                {
+                    text = L("scale_large") .. (current == 3 and " ✓" or ""),
+                    callback = function() choose(3) end,
+                },
+                {
+                    text = L("scale_normal") .. (current == 4 and " ✓" or ""),
+                    callback = function() choose(4) end,
+                },
+            },
+            {
+                {
+                    text = L("scale_compact") .. (current == 5 and " ✓" or ""),
+                    callback = function() choose(5) end,
+                },
+                {
+                    text = L("scale_dense") .. (current == 6 and " ✓" or ""),
+                    callback = function() choose(6) end,
+                },
+            },
+        },
+    }
+    UIManager:show(dialog)
+end
+
 function AlReaderBookList:installAlReaderFooter()
     if not self.page_info then return end
 
@@ -119,7 +163,7 @@ function AlReaderBookList:installAlReaderFooter()
     WidgetContainer.clear(self.page_info, true)
 
     local screen_w = Screen:getWidth()
-    local more_w = math.floor(screen_w * 0.07)
+    local more_w = math.floor(screen_w * 0.11)
     local alpha_w = self.onAlphabetTap and math.floor(screen_w * 0.09) or 0
     local nav_w = math.floor(screen_w * 0.08)
     local close_w = math.floor(screen_w * 0.07)
@@ -133,8 +177,10 @@ function AlReaderBookList:installAlReaderFooter()
         text_font_bold = false,
         callback = function()
             Debug.log("footer more tapped", self.title or "")
-            safeAction("footer more", function()
-                if self.onMoreTap then self.onMoreTap(self) end
+            UIManager:nextTick(function()
+                safeAction("footer more", function()
+                    self:showFooterMenu()
+                end)
             end)
         end,
     }

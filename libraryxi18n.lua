@@ -123,6 +123,8 @@ local strings = {
         filters_short = "Filters",
         alphabet_short = "A-Z",
         page_of = "%d of %d",
+        list_settings = "List settings",
+        menu_unavailable = "Menu is unavailable",
     },
     ru = {
         libraryx = "LibraryX",
@@ -246,6 +248,8 @@ local strings = {
         filters_short = "Фильтры",
         alphabet_short = "А-Я",
         page_of = "%d из %d",
+        list_settings = "Настройки списка",
+        menu_unavailable = "Меню недоступно",
     },
 }
 

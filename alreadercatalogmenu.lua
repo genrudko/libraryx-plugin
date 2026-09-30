@@ -1,6 +1,7 @@
 local Button = require("ui/widget/button")
 local Font = require("ui/font")
 local InputDialog = require("ui/widget/inputdialog")
+local InfoMessage = require("ui/widget/infomessage")
 local Menu = require("ui/widget/menu")
 local Screen = require("device").screen
 local TitleBar = require("ui/widget/titlebar")
@@ -66,7 +67,7 @@ function AlReaderCatalogMenu:installFooter()
     WidgetContainer.clear(self.page_info, true)
 
     local screen_w = Screen:getWidth()
-    local more_w = self.show_more ~= false and math.floor(screen_w * 0.07) or 0
+    local more_w = self.show_more ~= false and math.floor(screen_w * 0.11) or 0
     local alpha_w = self.onAlphabetTap and math.floor(screen_w * 0.09) or 0
     local nav_w = math.floor(screen_w * 0.08)
     local close_w = math.floor(screen_w * 0.07)
@@ -77,7 +78,16 @@ function AlReaderCatalogMenu:installFooter()
             text = "⋮", width = more_w, bordersize = 0, padding = 0,
             text_font_size = 18, text_font_bold = false,
             callback = function()
-                if self.onMoreTap then self.onMoreTap(self) end
+                UIManager:nextTick(function()
+                    if self.onMoreTap then
+                        self.onMoreTap(self)
+                    else
+                        UIManager:show(InfoMessage:new{
+                            text = L("menu_unavailable"),
+                            timeout = 2,
+                        })
+                    end
+                end)
             end,
         }
         table.insert(self.page_info, self.footer_more)
