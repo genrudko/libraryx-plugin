@@ -8,7 +8,7 @@ local function fakeManager(display_meta)
         if key == "hide_file_info" then return false end
         if key == "hide_page_info" then return false end
         if key == "no_hint_description" then return true end
-        if key == "fixed_item_font_size" then return false end
+        if key == "fixed_item_font_size" then return true end
         if key == "flash_ui_cover_images" then return false end
         if key == "show_pages_read_as_progress" then return false end
         if key == "show_pages_left_in_progress" then return false end

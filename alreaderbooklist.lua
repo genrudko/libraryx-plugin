@@ -142,7 +142,7 @@ function AlReaderBookList:installAlReaderFooter()
         padding = common.padding,
         padding_h = common.padding_h,
         padding_v = common.padding_v,
-        text_font_size = 13,
+        text_font_size = 11,
         text_font_bold = false,
         callback = function()
             if self.onSortTap then self.onSortTap(self) end
@@ -195,8 +195,8 @@ function AlReaderBookList:updateAlReaderFooter()
     local last = math.min(self.page * self.perpage, total)
     local label = self.sort_label or L("sort_title")
     self.footer_sort:setText(string.format(
-        "%s\n%s\n%d-%d",
-        L("sort"), label, first, last))
+        "%s · %d-%d",
+        label, first, last), self.footer_sort.width)
 
     if self.footer_prev then
         if self.page > 1 then self.footer_prev:enable() else self.footer_prev:disable() end

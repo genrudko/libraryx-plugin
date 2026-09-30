@@ -107,6 +107,13 @@ local strings = {
         scale_normal = "Normal · 4 books",
         scale_compact = "Compact · 5 books",
         scale_dense = "Dense · 6 books",
+        sort_title_short = "Title",
+        sort_author_short = "Author",
+        sort_series_short = "Series",
+        sort_recent_short = "Recent",
+        sort_added_short = "Added",
+        sort_filedate_short = "File date",
+        sort_series_index_short = "Series #",
     },
     ru = {
         libraryx = "LibraryX",
@@ -214,6 +221,13 @@ local strings = {
         scale_normal = "Обычно · 4 книги",
         scale_compact = "Компактно · 5 книг",
         scale_dense = "Плотно · 6 книг",
+        sort_title_short = "Название",
+        sort_author_short = "Автор",
+        sort_series_short = "Серия",
+        sort_recent_short = "Недавние",
+        sort_added_short = "Добавлено",
+        sort_filedate_short = "Дата файла",
+        sort_series_index_short = "№ серии",
     },
 }
 

@@ -8,6 +8,7 @@ local ffiUtil = require("ffi/util")
 local filemanagerutil = require("apps/filemanager/filemanagerutil")
 local LibraryRepo = require("libraryrepo")
 local AlReaderBookList = require("alreaderbooklist")
+local AlReaderCatalogMenu = require("alreadercatalogmenu")
 local Debug = require("libraryxdebug")
 local L = require("libraryxi18n").t
 
@@ -102,6 +103,17 @@ function LibraryUI:sortLabel(mode)
     if mode == SORT_SERIES_INDEX then return L("sort_series_index") end
     return L("sort_title")
 end
+
+function LibraryUI:sortShortLabel(mode)
+    if mode == SORT_AUTHOR then return L("sort_author_short") end
+    if mode == SORT_SERIES then return L("sort_series_short") end
+    if mode == SORT_ADDED then return L("sort_added_short") end
+    if mode == SORT_FILEDATE then return L("sort_filedate_short") end
+    if mode == SORT_RECENT then return L("sort_recent_short") end
+    if mode == SORT_SERIES_INDEX then return L("sort_series_index_short") end
+    return L("sort_title_short")
+end
+
 
 function LibraryUI:sortKey(book, mode)
     if mode == SORT_AUTHOR then
@@ -709,7 +721,7 @@ function LibraryUI:_showBooks(title, books, opts)
         title = title,
         item_table = items,
         libraryx_display_metadata = display_meta,
-        sort_label = self:sortLabel(mode) .. (reverse and " ↓" or ""),
+        sort_label = self:sortShortLabel(mode) .. (reverse and " ↓" or ""),
         onMenuSelect = function(_, item)
             self:showBookDetails(item.libraryx_book)
         end,
@@ -853,7 +865,7 @@ function LibraryUI:showSeriesBooks(title, books, sort_mode, reverse)
         title = title,
         item_table = items,
         libraryx_display_metadata = display_meta,
-        sort_label = self:sortLabel(mode) .. (reverse and " ↓" or ""),
+        sort_label = self:sortShortLabel(mode) .. (reverse and " ↓" or ""),
         onMenuSelect = function(_, item)
             self:showBookDetails(item.libraryx_book)
         end,
@@ -940,7 +952,7 @@ function LibraryUI:showAuthor(author)
         }
     end
 
-    UIManager:show(Menu:new{
+    UIManager:show(AlReaderCatalogMenu:new{
         title = L("authors") .. " / " .. author.name,
         item_table = items,
         is_borderless = true,
@@ -960,7 +972,7 @@ function LibraryUI:showAuthors()
             end,
         }
     end
-    UIManager:show(Menu:new{
+    UIManager:show(AlReaderCatalogMenu:new{
         title = L("authors"),
         item_table = items,
         is_borderless = true,
@@ -982,7 +994,7 @@ function LibraryUI:showSeries()
             end,
         }
     end
-    UIManager:show(Menu:new{
+    UIManager:show(AlReaderCatalogMenu:new{
         title = L("series"),
         item_table = items,
         is_borderless = true,
@@ -1013,7 +1025,7 @@ function LibraryUI:showFolders()
             end,
         }
     end
-    UIManager:show(Menu:new{
+    UIManager:show(AlReaderCatalogMenu:new{
         title = L("folders"),
         item_table = items,
         is_borderless = true,
@@ -1075,7 +1087,7 @@ function LibraryUI:showValueFilter(title, books, values, predicate, display)
             end,
         }
     end
-    UIManager:show(Menu:new{
+    UIManager:show(AlReaderCatalogMenu:new{
         title = title,
         item_table = items,
         is_borderless = true,
@@ -1172,7 +1184,7 @@ function LibraryUI:showFileNoveltyFilter(books)
             end,
         }
     end
-    UIManager:show(Menu:new{
+    UIManager:show(AlReaderCatalogMenu:new{
         title = L("filter_file_novelty"),
         item_table = items,
         is_borderless = true,
@@ -1219,7 +1231,7 @@ function LibraryUI:showAdditionalFilter(books)
             end,
         }
     end
-    UIManager:show(Menu:new{
+    UIManager:show(AlReaderCatalogMenu:new{
         title = L("filter_additional"),
         item_table = items,
         is_borderless = true,
@@ -1255,7 +1267,7 @@ function LibraryUI:showDataFilters()
             callback=function() self:showFormatFilter(books) end,
         },
     }
-    UIManager:show(Menu:new{
+    UIManager:show(AlReaderCatalogMenu:new{
         title = L("data_filters"),
         item_table = items,
         is_borderless = true,
