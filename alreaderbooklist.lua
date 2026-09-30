@@ -16,7 +16,7 @@ local L = require("libraryxi18n").t
 local CARDS_PER_PAGE_KEY = "libraryx_cards_per_page"
 local DEFAULT_CARDS_PER_PAGE = 4
 local MIN_CARDS_PER_PAGE = 3
-local MAX_CARDS_PER_PAGE = 6
+local MAX_CARDS_PER_PAGE = 10
 
 local function cardsPerPage()
     local value = tonumber(G_reader_settings:readSetting(CARDS_PER_PAGE_KEY))
@@ -121,36 +121,27 @@ function AlReaderBookList:showFooterMenu()
     local function choose(count)
         G_reader_settings:saveSetting(CARDS_PER_PAGE_KEY, count)
         self.files_per_page = count
+        self.libraryx_files_per_page = count
         if dialog then UIManager:close(dialog) end
         Debug.log("footer scale selected", tostring(count), self.title or "")
-        -- Rebuild this exact list in-place. This avoids depending on any
-        -- external LibraryUI callback just to make the ⋮ menu functional.
         self:updateItems(1)
+    end
+
+    local function option(count)
+        return {
+            text = string.format(L("books_per_screen"), count)
+                .. (current == count and " ✓" or ""),
+            callback = function() choose(count) end,
+        }
     end
 
     dialog = ButtonDialog:new{
         title = L("list_settings"),
         buttons = {
-            {
-                {
-                    text = L("scale_large") .. (current == 3 and " ✓" or ""),
-                    callback = function() choose(3) end,
-                },
-                {
-                    text = L("scale_normal") .. (current == 4 and " ✓" or ""),
-                    callback = function() choose(4) end,
-                },
-            },
-            {
-                {
-                    text = L("scale_compact") .. (current == 5 and " ✓" or ""),
-                    callback = function() choose(5) end,
-                },
-                {
-                    text = L("scale_dense") .. (current == 6 and " ✓" or ""),
-                    callback = function() choose(6) end,
-                },
-            },
+            { option(3), option(4) },
+            { option(5), option(6) },
+            { option(7), option(8) },
+            { option(9), option(10) },
         },
     }
     UIManager:show(dialog)

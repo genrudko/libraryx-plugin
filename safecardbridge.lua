@@ -1,4 +1,17 @@
+local Font = require("ui/font")
 local SafeCardBridge = {}
+
+
+function SafeCardBridge.densityScale(count)
+    count = tonumber(count) or 4
+    if count <= 5 then return 1.00 end
+    if count == 6 then return 0.88 end
+    if count == 7 then return 0.86 end
+    if count == 8 then return 0.84 end
+    if count == 9 then return 0.82 end
+    return 0.80
+end
+
 
 local function fakeManager(display_meta)
     local fake = {}
@@ -90,7 +103,35 @@ function SafeCardBridge.patch(menu, display_meta)
     menu.updateItems = modules.CoverMenu.updateItems
     menu.onCloseWidget = modules.CoverMenu.onCloseWidget
     menu._recalculateDimen = modules.ListMenu._recalculateDimen
-    menu._updateItemsBuildUI = modules.ListMenu._updateItemsBuildUI
+
+    local original_build = modules.ListMenu._updateItemsBuildUI
+    menu._updateItemsBuildUI = function(self)
+        local density = SafeCardBridge.densityScale(self.files_per_page)
+        if density >= 0.999 then
+            return original_build(self)
+        end
+
+        -- KOReader ListMenu already scales fonts from item height, but on PW5
+        -- its 24/22/18pt caps keep 6-row mode visually almost as large as 4/5.
+        -- Apply an additional deterministic density multiplier while the row
+        -- widgets are being built. Restoring Font.getFace immediately keeps
+        -- this local to LibraryX and prevents cross-widget side effects.
+        local original_get_face = Font.getFace
+        Font.getFace = function(font_self, name, size, ...)
+            if type(size) == "number"
+                and (name == "cfont" or name == "infont")
+            then
+                size = math.max(9, math.floor(size * density + 0.5))
+            end
+            return original_get_face(font_self, name, size, ...)
+        end
+
+        local ok, err = xpcall(function()
+            original_build(self)
+        end, debug.traceback)
+        Font.getFace = original_get_face
+        if not ok then error(err) end
+    end
 
     menu.display_mode_type = "list"
     menu.files_per_page = tonumber(menu.libraryx_files_per_page)
