@@ -11,17 +11,22 @@ local L = require("libraryxi18n").t
 local AlReaderCatalogMenu = Menu:extend{
     is_borderless = true,
     covers_fullscreen = true,
+    enable_search = true,
+    show_back = true,
+    show_more = true,
 }
 
 function AlReaderCatalogMenu:init()
     self.full_item_table = self.item_table or {}
+    self.current_query = nil
+
     self.custom_title_bar = TitleBar:new{
         width = Screen:getWidth(),
         fullscreen = true,
         align = "left",
         with_bottom_line = true,
         title = self.title or "",
-        left_icon = "chevron.left",
+        left_icon = self.show_back ~= false and "chevron.left" or nil,
         left_icon_size_ratio = 0.75,
         left_icon_tap_callback = function()
             UIManager:close(self)
@@ -43,9 +48,21 @@ function AlReaderCatalogMenu:installFooter()
     WidgetContainer.clear(self.page_info, true)
 
     local screen_w = Screen:getWidth()
-    local nav_w = math.floor(screen_w * 0.12)
-    local close_w = math.floor(screen_w * 0.09)
-    local center_w = screen_w - nav_w - nav_w - close_w
+    local more_w = self.show_more ~= false and math.floor(screen_w * 0.07) or 0
+    local nav_w = math.floor(screen_w * 0.09)
+    local close_w = math.floor(screen_w * 0.07)
+    local center_w = screen_w - more_w - nav_w - nav_w - close_w
+
+    if self.show_more ~= false then
+        self.footer_more = Button:new{
+            text = "⋮", width = more_w, bordersize = 0, padding = 0,
+            text_font_size = 18, text_font_bold = false,
+            callback = function()
+                if self.onMoreTap then self.onMoreTap(self) end
+            end,
+        }
+        table.insert(self.page_info, self.footer_more)
+    end
 
     self.footer_prev = Button:new{
         text = "‹", width = nav_w, bordersize = 0, padding = 0,
@@ -54,10 +71,12 @@ function AlReaderCatalogMenu:installFooter()
             if self.page > 1 then self:onGotoPage(self.page - 1) end
         end,
     }
-    self.footer_page = Button:new{
+    self.footer_status = Button:new{
         text = "", width = center_w, bordersize = 0, padding = 0,
-        text_font_size = 12, text_font_bold = false,
-        enabled = false,
+        text_font_size = 11, text_font_bold = false,
+        callback = function()
+            if self.onStatusTap then self.onStatusTap(self) end
+        end,
     }
     self.footer_next = Button:new{
         text = "›", width = nav_w, bordersize = 0, padding = 0,
@@ -73,17 +92,27 @@ function AlReaderCatalogMenu:installFooter()
     }
 
     table.insert(self.page_info, self.footer_prev)
-    table.insert(self.page_info, self.footer_page)
+    table.insert(self.page_info, self.footer_status)
     table.insert(self.page_info, self.footer_next)
     table.insert(self.page_info, self.footer_close)
     self:updateFooter()
 end
 
 function AlReaderCatalogMenu:updateFooter()
-    if not self.footer_page then return end
-    self.footer_page:setText(
-        string.format("%s %d / %d", L("page"), self.page, self.page_num),
-        self.footer_page.width)
+    if not self.footer_status then return end
+
+    local total = #self.item_table
+    local first = total > 0 and ((self.page - 1) * self.perpage + 1) or 0
+    local last = math.min(self.page * self.perpage, total)
+    local label = self.footer_label or ""
+    local text
+    if label ~= "" then
+        text = string.format("%s · %d-%d", label, first, last)
+    else
+        text = string.format("%d-%d", first, last)
+    end
+    self.footer_status:setText(text, self.footer_status.width)
+
     if self.page > 1 then self.footer_prev:enable() else self.footer_prev:disable() end
     if self.page < self.page_num then self.footer_next:enable() else self.footer_next:disable() end
 end
@@ -92,11 +121,31 @@ function AlReaderCatalogMenu:updatePageInfo(select_number)
     self:updateFooter()
 end
 
+function AlReaderCatalogMenu:applySearch(query)
+    query = query or ""
+    self.current_query = query ~= "" and query or nil
+
+    if query == "" then
+        self:switchItemTable(nil, self.full_item_table, 1)
+        return
+    end
+
+    local needle = util.stringLower(query)
+    local filtered = {}
+    for _, item in ipairs(self.full_item_table) do
+        local hay = util.stringLower(item.libraryx_search_text or item.text or "")
+        if hay and hay:find(needle, 1, true) then
+            filtered[#filtered + 1] = item
+        end
+    end
+    self:switchItemTable(nil, filtered, 1)
+end
+
 function AlReaderCatalogMenu:showSearchDialog()
     local dialog
     dialog = InputDialog:new{
         title = L("search"),
-        input = "",
+        input = self.current_query or "",
         buttons = {
             {
                 {
@@ -110,15 +159,16 @@ function AlReaderCatalogMenu:showSearchDialog()
                     callback = function()
                         local query = dialog:getInputText() or ""
                         UIManager:close(dialog)
-                        local needle = util.stringLower(query)
-                        local filtered = {}
-                        for _, item in ipairs(self.full_item_table) do
-                            local hay = util.stringLower(item.text or "")
-                            if query == "" or (hay and hay:find(needle, 1, true)) then
-                                filtered[#filtered + 1] = item
-                            end
-                        end
-                        self:switchItemTable(nil, filtered, 1)
+                        self:applySearch(query)
+                    end,
+                },
+            },
+            {
+                {
+                    text = L("clear_search"),
+                    callback = function()
+                        UIManager:close(dialog)
+                        self:applySearch("")
                     end,
                 },
             },

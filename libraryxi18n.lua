@@ -114,6 +114,13 @@ local strings = {
         sort_added_short = "Added",
         sort_filedate_short = "File date",
         sort_series_index_short = "Series #",
+        library = "Library",
+        alphabetical_short = "Alphabetical",
+        authors_short = "Authors",
+        series_short = "Series",
+        folders_short = "Folders",
+        filter_short = "Filter",
+        filters_short = "Filters",
     },
     ru = {
         libraryx = "LibraryX",
@@ -228,6 +235,13 @@ local strings = {
         sort_added_short = "Добавлено",
         sort_filedate_short = "Дата файла",
         sort_series_index_short = "№ серии",
+        library = "Библиотека",
+        alphabetical_short = "По алфавиту",
+        authors_short = "Авторы",
+        series_short = "Серии",
+        folders_short = "Папки",
+        filter_short = "Фильтр",
+        filters_short = "Фильтры",
     },
 }
 

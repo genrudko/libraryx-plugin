@@ -1,4 +1,3 @@
-local Menu = require("ui/widget/menu")
 local TextViewer = require("ui/widget/textviewer")
 local ButtonDialog = require("ui/widget/buttondialog")
 local ReaderUI = require("apps/reader/readerui")
@@ -28,6 +27,8 @@ local SORT_RECENT = "recent"
 local SORT_ADDED = "added"
 local SORT_FILEDATE = "filedate"
 local SORT_SERIES_INDEX = "series_index"
+local CATALOG_REVERSE_PREFIX = "libraryx_catalog_reverse_"
+local TITLES_REVERSE_KEY = "libraryx_titles_reverse"
 
 function LibraryUI.new(plugin, repo)
     return setmetatable({
@@ -887,6 +888,192 @@ function LibraryUI:showSeriesBooks(title, books, sort_mode, reverse)
     Debug.log("show series books SAFE CARD shown", title or "", "sort=" .. tostring(mode), "reverse=" .. tostring(reverse))
 end
 
+local upper_cyr_catalog = {
+    ["а"]="А",["б"]="Б",["в"]="В",["г"]="Г",["д"]="Д",["е"]="Е",["ё"]="Ё",
+    ["ж"]="Ж",["з"]="З",["и"]="И",["й"]="Й",["к"]="К",["л"]="Л",["м"]="М",
+    ["н"]="Н",["о"]="О",["п"]="П",["р"]="Р",["с"]="С",["т"]="Т",["у"]="У",
+    ["ф"]="Ф",["х"]="Х",["ц"]="Ц",["ч"]="Ч",["ш"]="Ш",["щ"]="Щ",["ъ"]="Ъ",
+    ["ы"]="Ы",["ь"]="Ь",["э"]="Э",["ю"]="Ю",["я"]="Я",
+}
+
+local function catalogFirstLetter(text)
+    if not text or text == "" then return "#" end
+    local c = text:match(util.UTF8_CHAR_PATTERN)
+    if not c then return "#" end
+    return upper_cyr_catalog[c] or c:upper()
+end
+
+function LibraryUI:getCatalogReverse(kind)
+    return G_reader_settings:isTrue(CATALOG_REVERSE_PREFIX .. tostring(kind))
+end
+
+function LibraryUI:setCatalogReverse(kind, reverse)
+    G_reader_settings:saveSetting(
+        CATALOG_REVERSE_PREFIX .. tostring(kind), reverse == true)
+end
+
+function LibraryUI:sortCatalogRows(rows, reverse)
+    table.sort(rows, function(a, b)
+        local an = a.name or a.text or ""
+        local bn = b.name or b.text or ""
+        if an ~= bn then return collate(an, bn) end
+        return (tonumber(a.count) or 0) < (tonumber(b.count) or 0)
+    end)
+    if reverse then
+        local i, j = 1, #rows
+        while i < j do
+            rows[i], rows[j] = rows[j], rows[i]
+            i, j = i + 1, j - 1
+        end
+    end
+    return rows
+end
+
+function LibraryUI:showCatalogAlphabet(menu, rows)
+    local first_positions = {}
+    local letters = {}
+    for i, row in ipairs(rows) do
+        local letter = catalogFirstLetter(row.name or row.text or "")
+        if not first_positions[letter] then
+            first_positions[letter] = i
+            letters[#letters + 1] = letter
+        end
+    end
+
+    local dialog
+    local buttons, line = {}, {}
+    for _, letter in ipairs(letters) do
+        local position = first_positions[letter]
+        line[#line + 1] = {
+            text = letter,
+            callback = function()
+                UIManager:close(dialog)
+                menu:switchItemTable(nil, nil, position)
+            end,
+        }
+        if #line == 6 then
+            buttons[#buttons + 1] = line
+            line = {}
+        end
+    end
+    if #line > 0 then buttons[#buttons + 1] = line end
+
+    dialog = ButtonDialog:new{
+        title = L("alphabet_index"),
+        buttons = buttons,
+    }
+    UIManager:show(dialog)
+end
+
+function LibraryUI:showCatalogMore(menu, rows, kind, recreate, alphabet_enabled)
+    local reverse = self:getCatalogReverse(kind)
+    local dialog
+    local buttons = {}
+
+    if alphabet_enabled ~= false then
+        buttons[#buttons + 1] = {
+            {
+                text = L("alphabet"),
+                callback = function()
+                    UIManager:close(dialog)
+                    self:showCatalogAlphabet(menu, rows)
+                end,
+            },
+        }
+    end
+
+    buttons[#buttons + 1] = {
+        {
+            text = reverse and L("normal_order") or L("reverse_order"),
+            callback = function()
+                self:setCatalogReverse(kind, not reverse)
+                UIManager:close(dialog)
+                UIManager:close(menu)
+                recreate()
+            end,
+        },
+    }
+
+    dialog = ButtonDialog:new{
+        title = L("sort"),
+        buttons = buttons,
+    }
+    UIManager:show(dialog)
+end
+
+function LibraryUI:showCatalogList(opts)
+    local rows = {}
+    for _, row in ipairs(opts.rows or {}) do
+        rows[#rows + 1] = row
+    end
+
+    local reverse = opts.fixed_order and false
+        or self:getCatalogReverse(opts.kind or "catalog")
+    if not opts.fixed_order then
+        self:sortCatalogRows(rows, reverse)
+    end
+
+    local items = {}
+    local menu
+    for _, row in ipairs(rows) do
+        local r = row
+        items[#items + 1] = {
+            text = r.name or r.text or "",
+            libraryx_search_text = r.search_text or r.name or r.text or "",
+            mandatory = r.count ~= nil and tostring(r.count) or r.mandatory,
+            mandatory_func = r.mandatory_func,
+            callback = r.callback,
+            hold_callback = r.hold_callback,
+        }
+    end
+
+    local function recreate()
+        opts.recreate()
+    end
+
+    menu = AlReaderCatalogMenu:new{
+        title = opts.title,
+        item_table = items,
+        enable_search = opts.enable_search ~= false,
+        show_back = opts.show_back ~= false,
+        show_more = opts.show_more ~= false,
+        footer_label = opts.footer_label or
+            (opts.fixed_order and "" or L("alphabetical_short")),
+        onMoreTap = function()
+            if opts.show_more == false then return end
+            self:showCatalogMore(
+                menu, rows, opts.kind or "catalog", recreate,
+                opts.alphabet_enabled ~= false)
+        end,
+        onStatusTap = function()
+            if opts.status_tap then
+                opts.status_tap(menu)
+            elseif opts.show_more ~= false then
+                self:showCatalogMore(
+                    menu, rows, opts.kind or "catalog", recreate,
+                    opts.alphabet_enabled ~= false)
+            end
+        end,
+    }
+    self.menus[#self.menus + 1] = menu
+    UIManager:show(menu)
+end
+
+function LibraryUI:showTitles(reverse)
+    if reverse == nil then
+        reverse = G_reader_settings:isTrue(TITLES_REVERSE_KEY)
+    end
+    local books = self.repo:listCatalogBooks(10000, 0)
+    self:showBooks(L("titles"), books, {
+        locked_sort = SORT_TITLE,
+        reverse = reverse,
+        reload = function(_, new_reverse)
+            G_reader_settings:saveSetting(TITLES_REVERSE_KEY, new_reverse == true)
+            self:showTitles(new_reverse)
+        end,
+    })
+end
+
 function LibraryUI:showAuthor(author)
     local books = self.repo:listBooksByAuthor(author.id)
     local by_series = {}
@@ -905,31 +1092,27 @@ function LibraryUI:showAuthor(author)
         end
     end
 
-    local series_names = {}
-    for name in pairs(by_series) do
-        series_names[#series_names + 1] = name
-    end
-    table.sort(series_names, collate)
-
-    local items = {}
-    for _, name in ipairs(series_names) do
-        local series_books = by_series[name]
-        items[#items + 1] = {
-            text = name,
-            mandatory = tostring(#series_books),
+    local rows = {}
+    for name, series_books in pairs(by_series) do
+        local n = name
+        local grouped = series_books
+        rows[#rows + 1] = {
+            name = n,
+            count = #grouped,
             callback = function()
-                Debug.log("author series selected", author.name, name, "group_count=" .. tostring(#series_books))
+                Debug.log("author series selected", author.name, n,
+                    "group_count=" .. tostring(#grouped))
                 self:openSeries(
-                    name,
-                    L("authors") .. " / " .. author.name .. " / " .. name)
+                    n,
+                    L("authors") .. " / " .. author.name .. " / " .. n)
             end,
         }
     end
 
     if #standalone > 0 then
-        items[#items + 1] = {
-            text = L("standalone_books"),
-            mandatory = tostring(#standalone),
+        rows[#rows + 1] = {
+            name = L("standalone_books"),
+            count = #standalone,
             callback = function()
                 self:showBooks(
                     L("authors") .. " / " .. author.name .. " / " .. L("standalone_books"),
@@ -952,41 +1135,42 @@ function LibraryUI:showAuthor(author)
         }
     end
 
-    UIManager:show(AlReaderCatalogMenu:new{
+    self:showCatalogList{
         title = L("authors") .. " / " .. author.name,
-        item_table = items,
-        is_borderless = true,
-        covers_fullscreen = true,
-    })
+        rows = rows,
+        kind = "author:" .. tostring(author.id),
+        footer_label = L("series_short"),
+        recreate = function() self:showAuthor(author) end,
+    }
 end
 
 function LibraryUI:showAuthors()
-    local items = {}
+    local rows = {}
     for _, author in ipairs(self.repo:listAuthors()) do
         local a = author
-        items[#items + 1] = {
-            text = a.name,
-            mandatory = tostring(a.count),
-            callback = function()
-                self:showAuthor(a)
-            end,
+        rows[#rows + 1] = {
+            name = a.name,
+            count = a.count,
+            callback = function() self:showAuthor(a) end,
         }
     end
-    UIManager:show(AlReaderCatalogMenu:new{
+
+    self:showCatalogList{
         title = L("authors"),
-        item_table = items,
-        is_borderless = true,
-        covers_fullscreen = true,
-    })
+        rows = rows,
+        kind = "authors",
+        footer_label = L("authors_short"),
+        recreate = function() self:showAuthors() end,
+    }
 end
 
 function LibraryUI:showSeries()
-    local items = {}
+    local rows = {}
     for _, series in ipairs(self.repo:listSeries()) do
         local sr = series
-        items[#items + 1] = {
-            text = sr.name,
-            mandatory = tostring(sr.count),
+        rows[#rows + 1] = {
+            name = sr.name,
+            count = sr.count,
             callback = function()
                 self:openSeries(
                     sr.name,
@@ -994,21 +1178,23 @@ function LibraryUI:showSeries()
             end,
         }
     end
-    UIManager:show(AlReaderCatalogMenu:new{
+
+    self:showCatalogList{
         title = L("series"),
-        item_table = items,
-        is_borderless = true,
-        covers_fullscreen = true,
-    })
+        rows = rows,
+        kind = "series",
+        footer_label = L("series_short"),
+        recreate = function() self:showSeries() end,
+    }
 end
 
 function LibraryUI:showFolders()
-    local items = {}
+    local rows = {}
     for _, folder in ipairs(self.repo:listFolders()) do
         local f = folder
-        items[#items + 1] = {
-            text = f.name,
-            mandatory = tostring(f.count),
+        rows[#rows + 1] = {
+            name = f.name,
+            count = f.count,
             callback = function()
                 local books = self.repo:listBooksByFolder(f.name)
                 self:showBooks(L("folders") .. " / " .. f.name, books, {
@@ -1025,12 +1211,14 @@ function LibraryUI:showFolders()
             end,
         }
     end
-    UIManager:show(AlReaderCatalogMenu:new{
+
+    self:showCatalogList{
         title = L("folders"),
-        item_table = items,
-        is_borderless = true,
-        covers_fullscreen = true,
-    })
+        rows = rows,
+        kind = "folders",
+        footer_label = L("folders_short"),
+        recreate = function() self:showFolders() end,
+    }
 end
 
 local function valuesWithCounts(books, getter)
@@ -1073,26 +1261,31 @@ function LibraryUI:showFilteredBooks(title, source_books, predicate)
 end
 
 function LibraryUI:showValueFilter(title, books, values, predicate, display)
-    local items = {}
+    local rows = {}
     for _, entry in ipairs(values) do
         local value = entry.value
-        items[#items + 1] = {
-            text = display and display(value) or value,
-            mandatory = tostring(entry.count),
+        local label = display and display(value) or value
+        rows[#rows + 1] = {
+            name = label,
+            count = entry.count,
             callback = function()
                 self:showFilteredBooks(
-                    title .. " / " .. (display and display(value) or value),
+                    title .. " / " .. label,
                     books,
                     function(book) return predicate(book, value) end)
             end,
         }
     end
-    UIManager:show(AlReaderCatalogMenu:new{
+
+    self:showCatalogList{
         title = title,
-        item_table = items,
-        is_borderless = true,
-        covers_fullscreen = true,
-    })
+        rows = rows,
+        kind = "filter:" .. title,
+        footer_label = L("filter_short"),
+        recreate = function()
+            self:showValueFilter(title, books, values, predicate, display)
+        end,
+    }
 end
 
 function LibraryUI:showLanguageFilter(books)
@@ -1167,10 +1360,10 @@ function LibraryUI:showFileNoveltyFilter(books)
         end
     end
 
-    local items = {}
+    local rows = {}
     for _, bucket in ipairs(buckets) do
         local b = bucket
-        items[#items + 1] = {
+        rows[#rows + 1] = {
             text = b.text,
             mandatory = tostring(b.count),
             callback = function()
@@ -1184,12 +1377,15 @@ function LibraryUI:showFileNoveltyFilter(books)
             end,
         }
     end
-    UIManager:show(AlReaderCatalogMenu:new{
+    self:showCatalogList{
         title = L("filter_file_novelty"),
-        item_table = items,
-        is_borderless = true,
-        covers_fullscreen = true,
-    })
+        rows = rows,
+        kind = "filter:file_novelty",
+        footer_label = L("filter_short"),
+        fixed_order = true,
+        alphabet_enabled = false,
+        recreate = function() self:showFileNoveltyFilter(books) end,
+    }
 end
 
 function LibraryUI:showAdditionalFilter(books)
@@ -1214,14 +1410,14 @@ function LibraryUI:showAdditionalFilter(books)
             predicate=function(book) return not book.last_read_at end,
         },
     }
-    local items = {}
+    local rows = {}
     for _, spec in ipairs(specs) do
         local count = 0
         for _, book in ipairs(books) do
             if spec.predicate(book) then count = count + 1 end
         end
         local sp = spec
-        items[#items + 1] = {
+        rows[#rows + 1] = {
             text = sp.text,
             mandatory = tostring(count),
             callback = function()
@@ -1231,48 +1427,38 @@ function LibraryUI:showAdditionalFilter(books)
             end,
         }
     end
-    UIManager:show(AlReaderCatalogMenu:new{
+    self:showCatalogList{
         title = L("filter_additional"),
-        item_table = items,
-        is_borderless = true,
-        covers_fullscreen = true,
-    })
+        rows = rows,
+        kind = "filter:additional",
+        footer_label = L("filter_short"),
+        fixed_order = true,
+        alphabet_enabled = false,
+        recreate = function() self:showAdditionalFilter(books) end,
+    }
 end
 
 function LibraryUI:showDataFilters()
     local books = self.repo:listCatalogBooks(10000, 0)
-    local items = {
-        {
-            text=L("filter_language"),
-            callback=function() self:showLanguageFilter(books) end,
-        },
-        {
-            text=L("filter_genres"),
-            callback=function() self:showGenreFilter(books) end,
-        },
-        {
-            text=L("filter_scan_date"),
-            callback=function() self:showScanDateFilter(books) end,
-        },
-        {
-            text=L("filter_file_novelty"),
-            callback=function() self:showFileNoveltyFilter(books) end,
-        },
-        {
-            text=L("filter_additional"),
-            callback=function() self:showAdditionalFilter(books) end,
-        },
-        {
-            text=L("filter_format"),
-            callback=function() self:showFormatFilter(books) end,
-        },
+    local rows = {
+        { name=L("filter_language"), callback=function() self:showLanguageFilter(books) end },
+        { name=L("filter_genres"), callback=function() self:showGenreFilter(books) end },
+        { name=L("filter_scan_date"), callback=function() self:showScanDateFilter(books) end },
+        { name=L("filter_file_novelty"), callback=function() self:showFileNoveltyFilter(books) end },
+        { name=L("filter_additional"), callback=function() self:showAdditionalFilter(books) end },
+        { name=L("filter_format"), callback=function() self:showFormatFilter(books) end },
     }
-    UIManager:show(AlReaderCatalogMenu:new{
+
+    self:showCatalogList{
         title = L("data_filters"),
-        item_table = items,
-        is_borderless = true,
-        covers_fullscreen = true,
-    })
+        rows = rows,
+        kind = "filters_root",
+        fixed_order = true,
+        enable_search = false,
+        show_more = false,
+        footer_label = L("filters_short"),
+        recreate = function() self:showDataFilters() end,
+    }
 end
 
 function LibraryUI:openRandomBook()
@@ -1282,79 +1468,68 @@ function LibraryUI:openRandomBook()
     -- database operation, and avoids another large correlated SQL projection.
     math.randomseed(os.time() + #books)
     local book = books[math.random(#books)]
-    ReaderUI:showReader(book.path)
+    self:showBookDetails(book)
 end
 
 function LibraryUI:showRoot()
     Debug.log("open library root")
 
-    local items = {
+    local rows = {
         {
-            text = L("all_books"),
-            mandatory_func = function()
-                return tostring(self.repo:countBooks())
-            end,
-            callback = function()
-                self:showAllBooks()
-            end,
+            name = L("all_books"),
+            mandatory_func = function() return tostring(self.repo:countBooks()) end,
+            callback = function() self:showAllBooks() end,
         },
         {
-            text = L("authors"),
-            mandatory_func = function()
-                return tostring(self.repo:countAuthors())
-            end,
+            name = L("authors"),
+            mandatory_func = function() return tostring(self.repo:countAuthors()) end,
             callback = function() self:showAuthors() end,
         },
         {
-            text = L("series"),
-            mandatory_func = function()
-                return tostring(self.repo:countSeries())
-            end,
+            name = L("series"),
+            mandatory_func = function() return tostring(self.repo:countSeries()) end,
             callback = function() self:showSeries() end,
         },
         {
-            text = L("titles"),
-            mandatory_func = function()
-                return tostring(self.repo:countBooks())
-            end,
-            callback = function()
-                local books = self.repo:listCatalogBooks(10000, 0)
-                self:showBooks(L("titles"), books, {
-                    locked_sort = SORT_TITLE,
-                    reverse = false,
-                    reload = function(_, new_reverse)
-                        self:showBooks(L("titles"), books, {
-                            locked_sort = SORT_TITLE,
-                            reverse = new_reverse,
-                            reload = function() end,
-                        })
-                    end,
-                })
-            end,
+            name = L("titles"),
+            mandatory_func = function() return tostring(self.repo:countBooks()) end,
+            callback = function() self:showTitles() end,
         },
         {
-            text = L("folders"),
+            name = L("folders"),
             callback = function() self:showFolders() end,
         },
         {
-            text = L("random_book"),
+            name = L("random_book"),
             callback = function() self:openRandomBook() end,
         },
         {
-            text = L("data_filters"),
+            name = L("data_filters"),
             callback = function() self:showDataFilters() end,
         },
         {
-            text = L("scan_library"),
+            name = L("scan_library"),
             callback = function() self.plugin:scanLibrary(false) end,
         },
     }
 
-    local menu = Menu:new{
-        title = L("libraryx"),
+    local menu
+    local items = {}
+    for _, row in ipairs(rows) do
+        items[#items + 1] = {
+            text = row.name,
+            mandatory_func = row.mandatory_func,
+            callback = row.callback,
+        }
+    end
+
+    menu = AlReaderCatalogMenu:new{
+        title = L("library"),
         item_table = items,
-        is_borderless = true,
-        covers_fullscreen = true,
+        enable_search = false,
+        show_back = false,
+        show_more = false,
+        footer_label = "",
     }
     self.plugin.library_menu = menu
     self.menus[#self.menus + 1] = menu
