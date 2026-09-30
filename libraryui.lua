@@ -620,14 +620,6 @@ function LibraryUI:showBookListMore(menu, books, mode, recreate)
         buttons = {
             {
                 {
-                    text = L("alphabet"),
-                    enabled = mode == SORT_TITLE or mode == SORT_AUTHOR or mode == SORT_SERIES,
-                    callback = function()
-                        UIManager:close(dialog)
-                        self:showAlphabet(menu, books, mode)
-                    end,
-                },
-                {
                     text = L("list_scale"),
                     callback = function()
                         UIManager:close(dialog)
@@ -737,6 +729,10 @@ function LibraryUI:_showBooks(title, books, opts)
                 reload = reload,
             })
         end,
+        onAlphabetTap = (mode == SORT_TITLE or mode == SORT_AUTHOR or mode == SORT_SERIES)
+            and function()
+                self:showAlphabet(menu, books, mode)
+            end or nil,
         onMoreTap = function()
             self:showBookListMore(menu, books, mode, function()
                 opts.reload(mode, reverse)
@@ -876,6 +872,10 @@ function LibraryUI:showSeriesBooks(title, books, sort_mode, reverse)
         onSortTap = function()
             self:showSeriesSortDialog(menu, title, books, mode, reverse)
         end,
+        onAlphabetTap = (mode == SORT_TITLE or mode == SORT_AUTHOR)
+            and function()
+                self:showAlphabet(menu, books, mode)
+            end or nil,
         onMoreTap = function()
             self:showBookListMore(menu, books, mode, function()
                 self:showSeriesBooks(title, books, mode, reverse)
@@ -967,36 +967,21 @@ end
 
 function LibraryUI:showCatalogMore(menu, rows, kind, recreate, alphabet_enabled)
     local reverse = self:getCatalogReverse(kind)
-    local dialog
-    local buttons = {}
-
-    if alphabet_enabled ~= false then
-        buttons[#buttons + 1] = {
-            {
-                text = L("alphabet"),
-                callback = function()
-                    UIManager:close(dialog)
-                    self:showCatalogAlphabet(menu, rows)
-                end,
-            },
-        }
-    end
-
-    buttons[#buttons + 1] = {
-        {
-            text = reverse and L("normal_order") or L("reverse_order"),
-            callback = function()
-                self:setCatalogReverse(kind, not reverse)
-                UIManager:close(dialog)
-                UIManager:close(menu)
-                recreate()
-            end,
-        },
-    }
-
-    dialog = ButtonDialog:new{
+    local dialog = ButtonDialog:new{
         title = L("sort"),
-        buttons = buttons,
+        buttons = {
+            {
+                {
+                    text = reverse and L("normal_order") or L("reverse_order"),
+                    callback = function()
+                        self:setCatalogReverse(kind, not reverse)
+                        UIManager:close(dialog)
+                        UIManager:close(menu)
+                        recreate()
+                    end,
+                },
+            },
+        },
     }
     UIManager:show(dialog)
 end
@@ -1039,6 +1024,10 @@ function LibraryUI:showCatalogList(opts)
         show_more = opts.show_more ~= false,
         footer_label = opts.footer_label or
             (opts.fixed_order and "" or L("alphabetical_short")),
+        onAlphabetTap = opts.alphabet_enabled ~= false and not opts.fixed_order
+            and function()
+                self:showCatalogAlphabet(menu, rows)
+            end or nil,
         onMoreTap = function()
             if opts.show_more == false then return end
             self:showCatalogMore(

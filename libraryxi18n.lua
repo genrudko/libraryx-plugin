@@ -121,6 +121,8 @@ local strings = {
         folders_short = "Folders",
         filter_short = "Filter",
         filters_short = "Filters",
+        alphabet_short = "A-Z",
+        page_of = "%d of %d",
     },
     ru = {
         libraryx = "LibraryX",
@@ -242,6 +244,8 @@ local strings = {
         folders_short = "Папки",
         filter_short = "Фильтр",
         filters_short = "Фильтры",
+        alphabet_short = "А-Я",
+        page_of = "%d из %d",
     },
 }
 
