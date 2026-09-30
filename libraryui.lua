@@ -549,12 +549,36 @@ function LibraryUI:showAllBooks(sort_mode, reverse)
     })
 end
 
+function LibraryUI:guardedAction(label, fn)
+    Debug.log("guard begin", label or "")
+    local ok, result = xpcall(fn, debug.traceback)
+    if ok then
+        Debug.log("guard ok", label or "")
+        return true, result
+    end
+
+    Debug.log("guard failed", label or "", result)
+    UIManager:show(InfoMessage:new{
+        text = L("internal_error") .. "\n\n" .. tostring(result),
+    })
+    return false, result
+end
+
+function LibraryUI:openSeries(series_name, title)
+    return self:guardedAction("open series: " .. tostring(series_name), function()
+        Debug.log("series query begin", series_name)
+        local books = self.repo:listBooksBySeries(series_name)
+        Debug.log("series query ok", series_name, "count=" .. tostring(#books))
+        self:showSeriesBooks(title, books)
+    end)
+end
+
 function LibraryUI:showSeriesBooks(title, books, reverse)
     Debug.log("show series books", title or "", "count=" .. tostring(#(books or {})))
     self:showBooks(title, books, {
         locked_sort = SORT_SERIES_INDEX,
         reverse = reverse == true,
-        series_context = true,
+        series_context = false,
         reload = function(_, new_reverse)
             self:showSeriesBooks(title, books, new_reverse)
         end,
@@ -593,11 +617,9 @@ function LibraryUI:showAuthor(author)
             mandatory = tostring(#series_books),
             callback = function()
                 Debug.log("author series selected", author.name, name, "group_count=" .. tostring(#series_books))
-                local canonical_books = self.repo:listBooksBySeries(name)
-                Debug.log("author series queried", name, "canonical_count=" .. tostring(#canonical_books))
-                self:showSeriesBooks(
-                    L("authors") .. " / " .. author.name .. " / " .. name,
-                    canonical_books)
+                self:openSeries(
+                    name,
+                    L("authors") .. " / " .. author.name .. " / " .. name)
             end,
         }
     end
@@ -664,9 +686,9 @@ function LibraryUI:showSeries()
             text = sr.name,
             mandatory = tostring(sr.count),
             callback = function()
-                self:showSeriesBooks(
-                    L("series") .. " / " .. sr.name,
-                    self.repo:listBooksBySeries(sr.name))
+                self:openSeries(
+                    sr.name,
+                    L("series") .. " / " .. sr.name)
             end,
         }
     end

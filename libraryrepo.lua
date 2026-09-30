@@ -383,47 +383,68 @@ end
 
 function LibraryRepo:listBooksBySeries(series)
     local db = self.storage:open()
+
+    -- Keep this path intentionally simple. It is hit directly from a Menu
+    -- callback on Kindle, so avoid nested aggregate subqueries here.
     local stmt = db:prepare([[
         SELECT
-            b.id, b.path, b.title, b.series, b.series_index, b.language,
-            b.format, b.filesize, b.last_read_at, b.percent_finished,
-            b.reading_status, b.filemtime, b.added_at,
-            COALESCE((
-                SELECT group_concat(x.name, char(10))
-                FROM (
-                    SELECT a.name AS name
-                    FROM book_authors ba2
-                    JOIN authors a ON a.id=ba2.author_id
-                    WHERE ba2.book_id=b.id
-                    ORDER BY ba2.ordinal
-                ) x
-            ), '') AS authors,
-            COALESCE((
-                SELECT group_concat(y.name, char(10))
-                FROM (
-                    SELECT g.name AS name
-                    FROM book_genres bg2
-                    JOIN genres g ON g.id=bg2.genre_id
-                    WHERE bg2.book_id=b.id
-                    ORDER BY g.name
-                ) y
-            ), '') AS genres
-        FROM books b
-        WHERE b.active=1 AND b.series=?
-        ORDER BY CASE WHEN b.series_index IS NULL THEN 1 ELSE 0 END,
-                 b.series_index, b.sort_title, b.title;
+            id, path, title, series, series_index, language,
+            format, filesize, last_read_at, percent_finished,
+            reading_status, filemtime, added_at
+        FROM books
+        WHERE active=1 AND series=?
+        ORDER BY CASE WHEN series_index IS NULL THEN 1 ELSE 0 END,
+                 series_index, sort_title, title;
     ]])
     stmt:reset():bind(series)
-    return collect_rows(stmt, function(row)
+
+    local books = collect_rows(stmt, function(row)
         return {
             id=tonumber(row[1]), path=row[2], title=row[3], series=row[4],
             series_index=tonumber(row[5]), language=row[6], format=row[7],
             filesize=tonumber(row[8]), last_read_at=tonumber(row[9]),
             percent_finished=tonumber(row[10]), reading_status=row[11],
             filemtime=tonumber(row[12]), added_at=tonumber(row[13]),
-            authors=row[14] or "", genres=row[15] or "",
+            authors="", genres="",
         }
     end)
+
+    local author_stmt = db:prepare([[
+        SELECT a.name
+        FROM book_authors ba
+        JOIN authors a ON a.id=ba.author_id
+        WHERE ba.book_id=?
+        ORDER BY ba.ordinal, a.name;
+    ]])
+    local genre_stmt = db:prepare([[
+        SELECT g.name
+        FROM book_genres bg
+        JOIN genres g ON g.id=bg.genre_id
+        WHERE bg.book_id=?
+        ORDER BY g.name;
+    ]])
+
+    for _, book in ipairs(books) do
+        local authors = {}
+        author_stmt:reset():bind(book.id)
+        while true do
+            local row = author_stmt:step()
+            if not row then break end
+            authors[#authors + 1] = row[1]
+        end
+        book.authors = table.concat(authors, "\n")
+
+        local genres = {}
+        genre_stmt:reset():bind(book.id)
+        while true do
+            local row = genre_stmt:step()
+            if not row then break end
+            genres[#genres + 1] = row[1]
+        end
+        book.genres = table.concat(genres, "\n")
+    end
+
+    return books
 end
 
 function LibraryRepo:listBooksByFolder(folder)

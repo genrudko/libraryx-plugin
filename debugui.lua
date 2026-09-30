@@ -20,7 +20,7 @@ function DebugUI.report(plugin)
         "log: " .. Debug.path(),
         "",
         "--- log ---",
-        Debug.read(),
+        Debug.readTail(12000),
     }, "\n")
     UIManager:show(TextViewer:new{
         title = L("debug_title"),

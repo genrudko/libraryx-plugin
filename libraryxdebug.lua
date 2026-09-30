@@ -31,6 +31,22 @@ function Debug.read()
     return s ~= "" and s or "(debug log is empty)"
 end
 
+function Debug.readTail(max_bytes)
+    max_bytes = max_bytes or 12000
+    local f = io.open(path(), "r")
+    if not f then return "(debug log is empty)" end
+    local size = f:seek("end") or 0
+    local start = math.max(0, size - max_bytes)
+    f:seek("set", start)
+    local data = f:read("*a") or ""
+    f:close()
+    if start > 0 then
+        local first_newline = data:find("\n", 1, true)
+        if first_newline then data = data:sub(first_newline + 1) end
+    end
+    return data ~= "" and data or "(debug log is empty)"
+end
+
 function Debug.clear()
     os.remove(path())
 end
