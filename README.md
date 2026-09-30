@@ -93,3 +93,99 @@ koreader/
 - Русский (`ru`)
 - English (`en`)
 - для остальных языков используется английский fallback
+
+---
+
+## English
+
+LibraryX is an indexed library frontend for KOReader inspired by AlReaderX navigation and information density. KOReader's native `ReaderUI` remains the actual reading engine.
+
+> The project is under active development. Primary device testing is currently done on Kindle Paperwhite 11 (PW5). Screenshots will be added later.
+
+### Features
+
+- **All books / Authors / Series / Titles / Folders**
+- search, sorting, reverse order and fast **A–Z** navigation
+- filters by language, genres, dates, file novelty and format
+- random book
+- real covers and cards with author, language, series and genres
+- adaptive **3–10 books per screen** density
+- short final pages expand their rows to use the available viewport
+- dedicated book-details screen before opening KOReader ReaderUI
+- long-press actions: **Read / Delete / Go to / Favorites**
+- navigation to every author of a book, its series and catalog
+- multi-label Favorites: **To read / Already read / Maybe later / Worth reading / Trash / Something unclear**
+- optional native **Start with LibraryX** integration
+- English and Russian UI following the KOReader interface language
+
+### Installation
+
+#### Build the ZIP
+
+```bash
+git clone https://github.com/genrudko/libraryx-plugin.git
+cd libraryx-plugin
+./tools/package.sh
+```
+
+This creates:
+
+```text
+dist/libraryx-debug.koplugin.zip
+```
+
+Extract the `libraryx.koplugin` directory into KOReader's plugin directory.
+
+Kindle:
+
+```text
+/mnt/us/koreader/plugins/libraryx.koplugin
+```
+
+Other devices:
+
+```text
+<KOReader directory>/plugins/libraryx.koplugin
+```
+
+Restart KOReader completely after copying the plugin.
+
+#### Install from source
+
+Download the repository and place its contents inside a directory named `libraryx.koplugin` under `koreader/plugins/`.
+
+```text
+koreader/
+└── plugins/
+    └── libraryx.koplugin/
+        ├── _meta.lua
+        ├── main.lua
+        ├── libraryui.lua
+        └── ...
+```
+
+### First run
+
+1. Restart KOReader.
+2. Open the **LibraryX** menu.
+3. Choose **Library folder**.
+4. Run **Scan library**.
+5. Open **LibraryX**.
+
+To start KOReader directly in LibraryX:
+
+```text
+Settings → Start with → LibraryX
+```
+
+The exact wording may vary slightly between KOReader versions; LibraryX is added to KOReader's native `Start with` menu.
+
+### Updating
+
+Replace the `libraryx.koplugin` directory with the new version and restart KOReader. LibraryX settings and its index live in KOReader's settings directory, not inside the plugin directory.
+
+### Languages
+
+- English (`en`)
+- Russian (`ru`)
+- other KOReader languages fall back to English
