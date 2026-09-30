@@ -574,15 +574,75 @@ function LibraryUI:openSeries(series_name, title)
 end
 
 function LibraryUI:showSeriesBooks(title, books, reverse)
-    Debug.log("show series books", title or "", "count=" .. tostring(#(books or {})))
-    self:showBooks(title, books, {
-        locked_sort = SORT_SERIES_INDEX,
-        reverse = reverse == true,
-        series_context = false,
-        reload = function(_, new_reverse)
-            self:showSeriesBooks(title, books, new_reverse)
-        end,
-    })
+    Debug.log("show series books SAFE", title or "", "count=" .. tostring(#(books or {})))
+
+    self:sortBooks(books, SORT_SERIES_INDEX, reverse == true)
+
+    local items = {}
+    local menu
+    for _, book in ipairs(books) do
+        local b = book
+
+        local lines = {}
+        local index = b.series_index and ("#" .. tostring(b.series_index) .. "  ") or ""
+        lines[#lines + 1] = index .. (b.title or b.path)
+
+        if b.authors and b.authors ~= "" then
+            lines[#lines + 1] = b.authors:gsub("\n", ", ")
+        end
+
+        local meta = {}
+        if b.language and b.language ~= "" then
+            meta[#meta + 1] = b.language:upper()
+        end
+        if b.genres and b.genres ~= "" then
+            meta[#meta + 1] = b.genres:gsub("\n", ", ")
+        end
+        if #meta > 0 then
+            lines[#lines + 1] = table.concat(meta, ", ")
+        end
+
+        local file_meta = {}
+        local path_l = (b.path or ""):lower()
+        if path_l:match("%.fb2%.zip$") then
+            file_meta[#file_meta + 1] = "FB2"
+        elseif b.format and b.format ~= "" then
+            file_meta[#file_meta + 1] = b.format:upper()
+        end
+        if b.filesize and b.filesize > 0 then
+            file_meta[#file_meta + 1] = util.getFriendlySize(b.filesize)
+        end
+        if b.percent_finished then
+            file_meta[#file_meta + 1] = string.format("%.1f%%", b.percent_finished * 100)
+        end
+        if #file_meta > 0 then
+            lines[#lines + 1] = table.concat(file_meta, " · ")
+        end
+
+        items[#items + 1] = {
+            text = table.concat(lines, "\n"),
+            callback = function()
+                self:openBook(menu, b)
+            end,
+            hold_callback = function()
+                self:showBookActions(menu, b)
+            end,
+        }
+    end
+
+    menu = Menu:new{
+        title = title,
+        item_table = items,
+        is_borderless = true,
+        covers_fullscreen = true,
+        single_line = false,
+        multilines_forced = true,
+        items_max_lines = 4,
+    }
+
+    self.menus[#self.menus + 1] = menu
+    UIManager:show(menu)
+    Debug.log("show series books SAFE shown", title or "")
 end
 
 function LibraryUI:showAuthor(author)
