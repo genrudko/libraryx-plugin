@@ -7,7 +7,7 @@ local Screen = require("device").screen
 local TitleBar = require("ui/widget/titlebar")
 local UIManager = require("ui/uimanager")
 local util = require("util")
-local CoverBridge = require("coverbridge")
+local SafeCardBridge = require("safecardbridge")
 local Debug = require("libraryxdebug")
 local L = require("libraryxi18n").t
 
@@ -52,11 +52,11 @@ function AlReaderBookList:init()
 
     -- Then replace only the list renderer with KOReader's optimized CoverBrowser
     -- renderer. It already handles lazy cover extraction and e-ink repainting.
-    local ok, err = CoverBridge.patch(self, self.libraryx_display_metadata)
+    local ok, err = SafeCardBridge.patch(self, self.libraryx_display_metadata)
     if not ok then
-        Debug.log("cover bridge failed", err)
+        Debug.log("safe card bridge failed", err)
     else
-        Debug.log("cover bridge ok", self.title or "")
+        Debug.log("safe card bridge ok", self.title or "")
     end
 
     self:installAlReaderFooter()

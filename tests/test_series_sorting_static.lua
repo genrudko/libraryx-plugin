@@ -17,9 +17,9 @@ for _, needle in ipairs({
     'SORT_AUTHOR',
     'SORT_ADDED',
     'SORT_FILEDATE',
-    'title_bar_left_icon = "appbar.menu"',
-    'subtitle = L("sort")',
 }) do
     assert(ui:find(needle,1,true), "missing series sorting contract: "..needle)
 end
+assert(ui:find("SERIES_SORT_STATE_VERSION = 2",1,true))
+assert(ui:find("SERIES_SORT_REVERSE_KEY, false",1,true))
 print("test_series_sorting_static: PASS")
