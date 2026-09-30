@@ -24,6 +24,16 @@ LibraryX — индексированный библиотечный интер�
 
 ## Установка
 
+### Рекомендуемый способ — GitHub Releases
+
+Откройте раздел **Releases** репозитория и скачайте готовый файл:
+
+```text
+libraryx-<версия>.koplugin.zip
+```
+
+Для каждой пользовательски значимой версии ZIP публикуется вместе с SHA-256 и двуязычными release notes.
+
 ### Сборка ZIP
 
 ```bash
@@ -119,6 +129,16 @@ LibraryX is an indexed library frontend for KOReader inspired by AlReaderX navig
 - English and Russian UI following the KOReader interface language
 
 ### Installation
+
+#### Recommended — GitHub Releases
+
+Open the repository **Releases** page and download:
+
+```text
+libraryx-<version>.koplugin.zip
+```
+
+Every user-visible release includes the ready-to-install ZIP, SHA-256 checksum and bilingual release notes.
 
 #### Build the ZIP
 
