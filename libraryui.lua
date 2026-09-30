@@ -15,6 +15,8 @@ LibraryUI.__index = LibraryUI
 
 local SORT_KEY = "libraryx_sort_mode"
 local SORT_REVERSE_KEY = "libraryx_sort_reverse"
+local SERIES_SORT_KEY = "libraryx_series_sort_mode"
+local SERIES_SORT_REVERSE_KEY = "libraryx_series_sort_reverse"
 local SORT_TITLE = "title"
 local SORT_AUTHOR = "author"
 local SORT_SERIES = "series"
@@ -55,6 +57,23 @@ end
 
 function LibraryUI:setSortReverse(reverse)
     G_reader_settings:saveSetting(SORT_REVERSE_KEY, reverse == true)
+end
+
+
+function LibraryUI:getSeriesSortMode()
+    return G_reader_settings:readSetting(SERIES_SORT_KEY) or SORT_SERIES_INDEX
+end
+
+function LibraryUI:setSeriesSortMode(mode)
+    G_reader_settings:saveSetting(SERIES_SORT_KEY, mode)
+end
+
+function LibraryUI:getSeriesSortReverse()
+    return G_reader_settings:isTrue(SERIES_SORT_REVERSE_KEY)
+end
+
+function LibraryUI:setSeriesSortReverse(reverse)
+    G_reader_settings:saveSetting(SERIES_SORT_REVERSE_KEY, reverse == true)
 end
 
 function LibraryUI:sortLabel(mode)
@@ -573,10 +592,61 @@ function LibraryUI:openSeries(series_name, title)
     end)
 end
 
-function LibraryUI:showSeriesBooks(title, books, reverse)
+function LibraryUI:showSeriesSortDialog(menu, title, books, mode, reverse)
+    local dialog
+    local function choose(new_mode, new_reverse)
+        self:setSeriesSortMode(new_mode)
+        self:setSeriesSortReverse(new_reverse)
+        UIManager:close(dialog)
+        UIManager:close(menu)
+        self:showSeriesBooks(title, books, new_mode, new_reverse)
+    end
+
+    dialog = ButtonDialog:new{
+        title = L("sort"),
+        buttons = {
+            {
+                {
+                    text = L("sort_series_index") .. (mode == SORT_SERIES_INDEX and " ✓" or ""),
+                    callback = function() choose(SORT_SERIES_INDEX, reverse) end,
+                },
+                {
+                    text = L("sort_title") .. (mode == SORT_TITLE and " ✓" or ""),
+                    callback = function() choose(SORT_TITLE, reverse) end,
+                },
+            },
+            {
+                {
+                    text = L("sort_author") .. (mode == SORT_AUTHOR and " ✓" or ""),
+                    callback = function() choose(SORT_AUTHOR, reverse) end,
+                },
+                {
+                    text = L("sort_added") .. (mode == SORT_ADDED and " ✓" or ""),
+                    callback = function() choose(SORT_ADDED, reverse) end,
+                },
+            },
+            {
+                {
+                    text = L("sort_filedate") .. (mode == SORT_FILEDATE and " ✓" or ""),
+                    callback = function() choose(SORT_FILEDATE, reverse) end,
+                },
+                {
+                    text = reverse and L("normal_order") or L("reverse_order"),
+                    callback = function() choose(mode, not reverse) end,
+                },
+            },
+        },
+    }
+    UIManager:show(dialog)
+end
+
+function LibraryUI:showSeriesBooks(title, books, sort_mode, reverse)
     Debug.log("show series books SAFE", title or "", "count=" .. tostring(#(books or {})))
 
-    self:sortBooks(books, SORT_SERIES_INDEX, reverse == true)
+    local mode = sort_mode or self:getSeriesSortMode()
+    if reverse == nil then reverse = self:getSeriesSortReverse() end
+
+    self:sortBooks(books, mode, reverse)
 
     local items = {}
     local menu
@@ -632,6 +702,9 @@ function LibraryUI:showSeriesBooks(title, books, reverse)
 
     menu = Menu:new{
         title = title,
+        subtitle = L("sort") .. ": " .. self:sortLabel(mode)
+            .. (reverse and " ↓" or ""),
+        title_bar_left_icon = "appbar.menu",
         item_table = items,
         is_borderless = true,
         covers_fullscreen = true,
@@ -641,8 +714,14 @@ function LibraryUI:showSeriesBooks(title, books, reverse)
     }
 
     self.menus[#self.menus + 1] = menu
+
+    local self_owner = self
+    function menu:onLeftButtonTap()
+        self_owner:showSeriesSortDialog(menu, title, books, mode, reverse)
+    end
+
     UIManager:show(menu)
-    Debug.log("show series books SAFE shown", title or "")
+    Debug.log("show series books SAFE shown", title or "", "sort=" .. tostring(mode), "reverse=" .. tostring(reverse))
 end
 
 function LibraryUI:showAuthor(author)
