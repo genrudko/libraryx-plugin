@@ -1,56 +1,95 @@
-# LibraryX.koplugin
+# LibraryX for KOReader
 
-LibraryX is an indexed library frontend for KOReader, targeting an AlReaderX-like
-navigation model and information density while leaving KOReader as the actual
-reading engine.
+**Русский** · [English](#english)
 
-## Status
+LibraryX — индексированный библиотечный интерфейс для KOReader, ориентированный на навигацию и плотность информации AlReaderX. Чтение книг остаётся за штатным `ReaderUI` KOReader.
 
-**M0 — compatibility spike (in progress).**
+> Проект находится в активной разработке. Основное тестирование сейчас ведётся на Kindle Paperwhite 11 (PW5). Скриншоты будут добавлены позже.
 
-The current build intentionally does *not* replace KOReader's home/file manager.
-It adds `LibraryX → Compatibility probe` to the FileManager menu and verifies,
-on the real device, that the KOReader build exposes the APIs LibraryX needs:
+## Возможности
 
-- `lua-ljsqlite3`
-- writable KOReader settings storage
-- metadata / cover extraction facade
-- reading status and progress from `BookList`
-- last-read history from `ReadHistory`
-- `ReaderUI:showReader`
-- document provider lookup
+- **Все книги / Авторы / Серии / Названия / Папки**
+- поиск, сортировки, обратный порядок и быстрый переход **А–Я**
+- фильтры по языку, жанрам, датам, новизне файлов и формату
+- случайная книга
+- реальные обложки и карточки с автором, языком, серией и жанрами
+- адаптивная плотность списка **3–10 книг на экран**
+- неполная последняя страница растягивает карточки на доступную высоту
+- отдельный экран информации о книге перед открытием ReaderUI
+- long-press: **Читать / Удалить / Перейти / Избранное**
+- переход ко всем авторам книги, серии и каталогу
+- многометочное избранное: **К прочтению / Уже прочитано / Может быть позже / Стоящая книга / Мусор / Что-то непонятное**
+- запуск KOReader сразу в LibraryX через штатное **Start with / Запускать с**
+- русский и английский интерфейс; язык следует настройке KOReader
 
-## Install the M0 probe
+## Установка
 
-Copy this repository directory to:
+### Сборка ZIP
+
+```bash
+git clone https://github.com/genrudko/libraryx-plugin.git
+cd libraryx-plugin
+./tools/package.sh
+```
+
+Будет создан:
+
+```text
+dist/libraryx-debug.koplugin.zip
+```
+
+Распакуйте каталог `libraryx.koplugin` в каталог плагинов KOReader.
+
+Kindle:
 
 ```text
 /mnt/us/koreader/plugins/libraryx.koplugin
 ```
 
-Restart KOReader, open the FileManager menu and run:
+Другие устройства:
 
 ```text
-LibraryX → Compatibility probe
+<каталог KOReader>/plugins/libraryx.koplugin
 ```
 
-Send the displayed report if any probe fails.
+После копирования полностью перезапустите KOReader.
 
-## Design target
+### Установка из исходников
 
-The product target is *not* a Bookshelf fork. It is a separate indexed catalog
-with AlReaderX-style navigation:
+Скачайте репозиторий, поместите его содержимое в каталог `libraryx.koplugin` и скопируйте его в `koreader/plugins/`.
 
-- all books
-- authors
-- series
-- titles
-- folders
-- genres / language / format / date filters
-- recent and random
-- contextual `Go to author / series / folder`
-- persistent back-stack including list position, search, filter and sort state
-- compact rows with cover, title, author, series index, metadata, last-read time
-  and KOReader progress
+```text
+koreader/
+└── plugins/
+    └── libraryx.koplugin/
+        ├── _meta.lua
+        ├── main.lua
+        ├── libraryui.lua
+        └── ...
+```
 
-See `docs/ARCHITECTURE.md`.
+## Первый запуск
+
+1. Перезапустите KOReader.
+2. Откройте меню **LibraryX**.
+3. Выберите **Папка библиотеки**.
+4. Запустите **Сканировать библиотеку**.
+5. Откройте **LibraryX**.
+
+Чтобы KOReader открывался сразу в LibraryX:
+
+```text
+Настройки → Запускать с → LibraryX
+```
+
+Точное название пункта зависит от версии KOReader; LibraryX добавляется в штатное меню `Start with`.
+
+## Обновление
+
+Замените каталог `libraryx.koplugin` новой версией и перезапустите KOReader. Индекс и настройки LibraryX хранятся в каталоге настроек KOReader, а не внутри каталога плагина.
+
+## Языки
+
+- Русский (`ru`)
+- English (`en`)
+- для остальных языков используется английский fallback

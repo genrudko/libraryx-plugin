@@ -2,7 +2,7 @@ local function slurp(path)
  local f=assert(io.open(path,"r")); local s=f:read("*a"); f:close(); return s
 end
 local bridge=slurp("safecardbridge.lua")
-for _,needle in ipairs({"function SafeCardBridge.adaptiveProfile","row_height","local ratio =","math.min(target_rows, item_count)","Font.getFace = function","math.floor(size * density + 0.5)","Font.getFace = original_get_face"}) do assert(bridge:find(needle,1,true),"missing adaptive density behavior: "..needle) end
+for _,needle in ipairs({"function SafeCardBridge.adaptiveProfile","row_height","local ratio =","self.files_per_page = target_rows","local visible_rows =","Font.getFace = function","math.floor(size * density + 0.5)","Font.getFace = original_get_face"}) do assert(bridge:find(needle,1,true),"missing adaptive density behavior: "..needle) end
 assert(not bridge:find("densityScale",1,true))
 local list=slurp("alreaderbooklist.lua")
 assert(list:find("local MAX_CARDS_PER_PAGE = 10",1,true)); assert(list:find("libraryx_target_rows",1,true))

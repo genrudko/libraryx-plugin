@@ -1,4 +1,7 @@
 local Font = require("ui/font")
+local Size = require("ui/size")
+local Screen = require("device").screen
+local util = require("util")
 local Debug = require("libraryxdebug")
 local SafeCardBridge = {}
 
@@ -33,7 +36,27 @@ local function placeholderInfo(filepath, display_meta)
 end
 
 
-local function overlayDisplayMetadata(info, meta)
+local function truncateCardAuthor(text, target_rows)
+    text = tostring(text or "")
+    target_rows = tonumber(target_rows) or 4
+    local max_chars
+    if target_rows >= 9 then
+        max_chars = 40
+    elseif target_rows >= 7 then
+        max_chars = 46
+    elseif target_rows >= 6 then
+        max_chars = 54
+    end
+    if not max_chars then return text end
+
+    local chars = util.splitToChars(text)
+    if #chars <= max_chars then return text end
+    local out = {}
+    for i = 1, max_chars - 1 do out[i] = chars[i] end
+    return table.concat(out) .. "…"
+end
+
+local function overlayDisplayMetadata(info, meta, menu)
     if not info then return nil end
     if not meta then return info end
 
@@ -49,7 +72,9 @@ local function overlayDisplayMetadata(info, meta)
     if meta.genres and meta.genres ~= "" then
         secondary[#secondary + 1] = meta.genres
     end
-    copy.authors = meta.authors
+    copy.authors = truncateCardAuthor(
+        meta.authors,
+        menu and (menu.libraryx_visible_rows or menu.libraryx_target_rows) or nil)
     if #secondary > 0 then
         copy.authors = (copy.authors and copy.authors ~= "" and (copy.authors .. "\n") or "")
             .. table.concat(secondary, ", ")
@@ -64,7 +89,7 @@ local function overlayDisplayMetadata(info, meta)
 end
 
 
-local function safeManager(real, display_meta)
+local function safeManager(real, display_meta, menu)
     local adapter = {}
 
     function adapter:getSetting(key)
@@ -92,7 +117,7 @@ local function safeManager(real, display_meta)
             -- A broken cache row must never take LibraryX down with it.
             return placeholderInfo(filepath, display_meta)
         end
-        return overlayDisplayMetadata(info, display_meta and display_meta[filepath])
+        return overlayDisplayMetadata(info, display_meta and display_meta[filepath], menu)
     end
 
     -- IMPORTANT: upstream ListMenu calls these two with DOT syntax, not colon
@@ -159,7 +184,7 @@ local function safeManager(real, display_meta)
 end
 
 
-local function loadModules(display_meta)
+local function loadModules(display_meta, menu)
     local old_path = package.path
     package.path = "plugins/coverbrowser.koplugin/?.lua;" .. old_path
 
@@ -170,7 +195,7 @@ local function loadModules(display_meta)
     end
 
     local old_loaded = package.loaded["bookinfomanager"]
-    local adapter = safeManager(real, display_meta or {})
+    local adapter = safeManager(real, display_meta or {}, menu)
     package.loaded["bookinfomanager"] = adapter
 
     local ok_cover, CoverMenu = pcall(dofile, "plugins/coverbrowser.koplugin/covermenu.lua")
@@ -193,7 +218,7 @@ end
 
 
 function SafeCardBridge.patch(menu, display_meta)
-    local modules, err = loadModules(display_meta)
+    local modules, err = loadModules(display_meta, menu)
     if not modules then return nil, err end
 
     menu.updateItems = modules.CoverMenu.updateItems
@@ -206,9 +231,27 @@ function SafeCardBridge.patch(menu, display_meta)
             or tonumber(self.libraryx_files_per_page)
             or tonumber(G_reader_settings:readSetting("libraryx_cards_per_page"))
             or 4
+
+        -- Keep pagination stable at the selected target density.  Only the
+        -- current page's visual row height adapts when that page is short.
+        self.files_per_page = target_rows
+        local result = original_recalculate(self)
+
         local item_count = #(self.item_table or {})
-        self.files_per_page = item_count > 0 and math.min(target_rows, item_count) or target_rows
-        return original_recalculate(self)
+        local page = math.max(1, tonumber(self.page) or 1)
+        local first_index = (page - 1) * target_rows + 1
+        local remaining = math.max(0, item_count - first_index + 1)
+        local visible_rows = math.min(target_rows, remaining)
+        self.libraryx_visible_rows =
+            visible_rows > 0 and visible_rows or target_rows
+        if visible_rows > 0 and visible_rows < target_rows then
+            local available_height =
+                self.inner_dimen.h - self.others_height - Size.line.thin
+            self.item_height =
+                math.floor(available_height / visible_rows) - Size.line.thin
+            self.item_dimen.h = self.item_height
+        end
+        return result
     end
 
     local original_build = modules.ListMenu._updateItemsBuildUI
@@ -236,9 +279,7 @@ function SafeCardBridge.patch(menu, display_meta)
         or tonumber(menu.files_per_page)
         or tonumber(G_reader_settings:readSetting("libraryx_cards_per_page"))
         or 4
-    local target_rows = menu.libraryx_target_rows
-    local item_count = #(menu.item_table or {})
-    menu.files_per_page = item_count > 0 and math.min(target_rows, item_count) or target_rows
+    menu.files_per_page = menu.libraryx_target_rows
 
     -- Real covers are handled by KOReader's own BookInfoManager cache and
     -- forked background extractor. The explicit adapter above keeps LibraryX
