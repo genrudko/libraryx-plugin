@@ -551,6 +551,52 @@ function LibraryRepo:setMetadataVersion(version)
     step_done(stmt, tostring(version))
 end
 
+function LibraryRepo:getBookDetails(book_id)
+    local db = self.storage:open()
+    local stmt = db:prepare([[
+        SELECT
+            b.id, b.path, b.directory, b.title, b.series, b.series_index,
+            b.language, b.description, b.format, b.filesize,
+            b.last_read_at, b.percent_finished, b.reading_status,
+            b.filemtime, b.added_at,
+            COALESCE((
+                SELECT group_concat(x.name, char(10))
+                FROM (
+                    SELECT a.name AS name
+                    FROM book_authors ba
+                    JOIN authors a ON a.id=ba.author_id
+                    WHERE ba.book_id=b.id
+                    ORDER BY ba.ordinal
+                ) x
+            ), '') AS authors,
+            COALESCE((
+                SELECT group_concat(y.name, char(10))
+                FROM (
+                    SELECT g.name AS name
+                    FROM book_genres bg
+                    JOIN genres g ON g.id=bg.genre_id
+                    WHERE bg.book_id=b.id
+                    ORDER BY g.name
+                ) y
+            ), '') AS genres
+        FROM books b
+        WHERE b.id=? AND b.active=1
+        LIMIT 1;
+    ]])
+    stmt:reset():bind(book_id)
+    local row = stmt:step()
+    if not row then return nil end
+    return {
+        id=tonumber(row[1]), path=row[2], directory=row[3], title=row[4],
+        series=row[5], series_index=tonumber(row[6]), language=row[7],
+        description=row[8], format=row[9], filesize=tonumber(row[10]),
+        last_read_at=tonumber(row[11]), percent_finished=tonumber(row[12]),
+        reading_status=row[13], filemtime=tonumber(row[14]),
+        added_at=tonumber(row[15]), authors=row[16] or "", genres=row[17] or "",
+    }
+end
+
+
 function LibraryRepo:listCatalogBooks(limit, offset)
     local db = self.storage:open()
     local stmt = db:prepare([[

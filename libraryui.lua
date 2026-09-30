@@ -1,4 +1,5 @@
 local Menu = require("ui/widget/menu")
+local TextViewer = require("ui/widget/textviewer")
 local ButtonDialog = require("ui/widget/buttondialog")
 local ReaderUI = require("apps/reader/readerui")
 local UIManager = require("ui/uimanager")
@@ -235,6 +236,143 @@ function LibraryUI:toBookListItems(books, opts)
     return items, display_meta
 end
 
+local function markdownEscape(text)
+    text = tostring(text or "")
+    text = text:gsub("\\", "\\\\")
+    text = text:gsub("([%*_#%[%]])", "\\%1")
+    return text
+end
+
+local function readableDate(ts)
+    ts = tonumber(ts)
+    if not ts or ts <= 0 then return nil end
+    return os.date("%Y-%m-%d %H:%M", ts)
+end
+
+function LibraryUI:bookDetailsText(book)
+    local lines = {}
+
+    local authors = (book.authors and book.authors ~= "")
+        and book.authors:gsub("\n", ", ")
+        or L("unknown_author")
+    lines[#lines + 1] = "**" .. L("author_label") .. ":** " .. markdownEscape(authors)
+
+    if book.series and book.series ~= "" then
+        local series = book.series
+        if book.series_index then
+            series = series .. " #" .. tostring(book.series_index)
+        end
+        lines[#lines + 1] = "**" .. L("series_label") .. ":** " .. markdownEscape(series)
+    end
+
+    if book.language and book.language ~= "" then
+        lines[#lines + 1] = "**" .. L("language_label") .. ":** " .. markdownEscape(book.language:upper())
+    end
+
+    if book.genres and book.genres ~= "" then
+        lines[#lines + 1] = "**" .. L("genres_label") .. ":** "
+            .. markdownEscape(book.genres:gsub("\n", ", "))
+    end
+
+    local format = book.format or ""
+    local path_l = (book.path or ""):lower()
+    if path_l:match("%.fb2%.zip$") then format = "FB2.ZIP" end
+    if format ~= "" then
+        lines[#lines + 1] = "**" .. L("format_label") .. ":** " .. markdownEscape(format:upper())
+    end
+    if book.filesize and book.filesize > 0 then
+        lines[#lines + 1] = "**" .. L("size_label") .. ":** " .. util.getFriendlySize(book.filesize)
+    end
+
+    local progress = tonumber(book.percent_finished)
+    if progress then
+        lines[#lines + 1] = "**" .. L("progress_label") .. ":** "
+            .. string.format("%.2f%%", progress * 100)
+    end
+
+    local last_read = readableDate(book.last_read_at)
+    lines[#lines + 1] = "**" .. L("last_read_label") .. ":** "
+        .. (last_read or L("not_read"))
+
+    local added = readableDate(book.added_at)
+    if added then
+        lines[#lines + 1] = "**" .. L("added_label") .. ":** " .. added
+    end
+    local file_date = readableDate(book.filemtime)
+    if file_date then
+        lines[#lines + 1] = "**" .. L("file_date_label") .. ":** " .. file_date
+    end
+
+    lines[#lines + 1] = ""
+    lines[#lines + 1] = "**" .. L("description_label") .. "**"
+    local description = book.description
+    if description and description ~= "" then
+        description = util.htmlToPlainTextIfHtml(description)
+        lines[#lines + 1] = markdownEscape(description)
+    else
+        lines[#lines + 1] = L("no_description")
+    end
+
+    lines[#lines + 1] = ""
+    lines[#lines + 1] = "**" .. L("path_label") .. ":** " .. markdownEscape(book.path or "")
+
+    return table.concat(lines, "\n\n")
+end
+
+function LibraryUI:showBookDetails(book)
+    local full = self.repo:getBookDetails(book.id) or book
+    Debug.log("show book details", full.path or "")
+
+    local viewer
+    viewer = TextViewer:new{
+        title = full.title or util.splitFilePathName(full.path or ""),
+        title_multilines = true,
+        title_shrink_font_to_fit = true,
+        text = self:bookDetailsText(full),
+        text_format = "md",
+        text_type = "book_info",
+        show_menu = false,
+        add_default_buttons = false,
+        buttons_table = {
+            {
+                {
+                    text = L("read_book"),
+                    callback = function()
+                        UIManager:close(viewer)
+                        UIManager:nextTick(function()
+                            ReaderUI:showReader(full.path)
+                        end)
+                    end,
+                },
+                {
+                    text = L("cover"),
+                    callback = function()
+                        local bookinfo = self.plugin.ui and self.plugin.ui.bookinfo
+                        if bookinfo then
+                            bookinfo:onShowBookCover(full.path)
+                        end
+                    end,
+                },
+            },
+            {
+                {
+                    text = L("go_to"),
+                    callback = function()
+                        self:showGoTo(full)
+                    end,
+                },
+                {
+                    text = L("close"),
+                    callback = function()
+                        UIManager:close(viewer)
+                    end,
+                },
+            },
+        },
+    }
+    UIManager:show(viewer)
+end
+
 function LibraryUI:openBook(menu, book)
     Debug.log("open book", book.path)
     UIManager:close(menu)
@@ -251,13 +389,7 @@ function LibraryUI:findAuthorByName(name)
 end
 
 function LibraryUI:showBookInfo(book)
-    local bookinfo = self.plugin.ui and self.plugin.ui.bookinfo
-    if not bookinfo then return end
-    local props = bookinfo:getDocProps(book.path, nil, true)
-    if props and bookinfo.extendProps then
-        props = bookinfo.extendProps(props, book.path)
-    end
-    bookinfo:show(book.path, props)
+    self:showBookDetails(book)
 end
 
 function LibraryUI:showGoTo(book)
@@ -533,7 +665,7 @@ function LibraryUI:_showBooks(title, books, opts)
         libraryx_display_metadata = display_meta,
         sort_label = self:sortLabel(mode) .. (reverse and " ↓" or ""),
         onMenuSelect = function(_, item)
-            self:openBook(menu, item.libraryx_book)
+            self:showBookDetails(item.libraryx_book)
         end,
         onMenuHold = function(_, item)
             self:showBookActions(menu, item.libraryx_book)
@@ -675,7 +807,7 @@ function LibraryUI:showSeriesBooks(title, books, sort_mode, reverse)
         libraryx_display_metadata = display_meta,
         sort_label = self:sortLabel(mode) .. (reverse and " ↓" or ""),
         onMenuSelect = function(_, item)
-            self:openBook(menu, item.libraryx_book)
+            self:showBookDetails(item.libraryx_book)
         end,
         onMenuHold = function(_, item)
             self:showBookActions(menu, item.libraryx_book)
