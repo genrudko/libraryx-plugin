@@ -162,6 +162,15 @@ function AlReaderBookList:installAlReaderFooter()
     local WidgetContainer = require("ui/widget/container/widgetcontainer")
     WidgetContainer.clear(self.page_info, true)
 
+    -- KOReader Menu also keeps a separate bottom-left return_button overlay.
+    -- Our AlReader shell already has a back button in the title bar, so that
+    -- stock overlay is redundant and, more importantly, it sits on top of
+    -- the left edge of page_info and steals taps from our footer ⋮ button.
+    -- Remove it completely before installing the custom footer.
+    if self.return_button then
+        WidgetContainer.clear(self.return_button, true)
+    end
+
     local screen_w = Screen:getWidth()
     local more_w = math.floor(screen_w * 0.11)
     local alpha_w = self.onAlphabetTap and math.floor(screen_w * 0.09) or 0

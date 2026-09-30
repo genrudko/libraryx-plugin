@@ -66,6 +66,15 @@ function AlReaderCatalogMenu:installFooter()
     if not self.page_info then return end
     WidgetContainer.clear(self.page_info, true)
 
+    -- KOReader Menu also keeps a separate bottom-left return_button overlay.
+    -- Our AlReader shell already has a back button in the title bar, so that
+    -- stock overlay is redundant and, more importantly, it sits on top of
+    -- the left edge of page_info and steals taps from our footer ⋮ button.
+    -- Remove it completely before installing the custom footer.
+    if self.return_button then
+        WidgetContainer.clear(self.return_button, true)
+    end
+
     local screen_w = Screen:getWidth()
     local more_w = self.show_more ~= false and math.floor(screen_w * 0.11) or 0
     local alpha_w = self.onAlphabetTap and math.floor(screen_w * 0.09) or 0
