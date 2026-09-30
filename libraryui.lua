@@ -1,4 +1,6 @@
 local TextViewer = require("ui/widget/textviewer")
+local Font = require("ui/font")
+local FileManagerConverter = require("apps/filemanager/filemanagerconverter")
 local ButtonDialog = require("ui/widget/buttondialog")
 local ReaderUI = require("apps/reader/readerui")
 local UIManager = require("ui/uimanager")
@@ -29,6 +31,21 @@ local SORT_FILEDATE = "filedate"
 local SORT_SERIES_INDEX = "series_index"
 local CATALOG_REVERSE_PREFIX = "libraryx_catalog_reverse_"
 local TITLES_REVERSE_KEY = "libraryx_titles_reverse"
+
+local BOOK_DETAILS_TEXT_TYPE = "libraryx_book_info"
+local BOOK_DETAILS_FONT_SIZE = 20
+local BOOK_DETAILS_TEXT_TYPES = {
+    [BOOK_DETAILS_TEXT_TYPE] = {
+        monospace_font = false,
+        font_size = BOOK_DETAILS_FONT_SIZE,
+        justified = true,
+    },
+}
+local BOOK_DETAILS_STYLESHEET = [[
+body {
+    font-family: 'Noto Sans', sans-serif;
+}
+]]
 
 function LibraryUI.new(plugin, repo)
     return setmetatable({
@@ -336,14 +353,19 @@ function LibraryUI:showBookDetails(book)
     local full = self.repo:getBookDetails(book.id) or book
     Debug.log("show book details", full.path or "")
 
+    local details_html = FileManagerConverter:mdToHtml(
+        self:bookDetailsText(full), "", BOOK_DETAILS_STYLESHEET)
+
     local viewer
     viewer = TextViewer:new{
         title = full.title or util.splitFilePathName(full.path or ""),
+        title_face = Font:getFace("x_smalltfont"),
         title_multilines = true,
         title_shrink_font_to_fit = true,
-        text = self:bookDetailsText(full),
-        text_format = "md",
-        text_type = "book_info",
+        text = details_html,
+        text_format = "html",
+        text_type = BOOK_DETAILS_TEXT_TYPE,
+        text_types = BOOK_DETAILS_TEXT_TYPES,
         show_menu = false,
         add_default_buttons = false,
         buttons_table = {
