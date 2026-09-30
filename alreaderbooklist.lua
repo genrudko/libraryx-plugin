@@ -73,9 +73,9 @@ function AlReaderBookList:init()
         subtitle = title_parent,
         subtitle_face = Font:getFace("xx_smallinfofont"),
         subtitle_truncate_left = true,
-        left_icon = "chevron.left",
-        left_icon_size_ratio = 0.75,
-        left_icon_tap_callback = function()
+        left_icon = self.libraryx_header_left_icon or "chevron.left",
+        left_icon_size_ratio = self.libraryx_header_left_icon_size_ratio or 0.75,
+        left_icon_tap_callback = self.libraryx_header_left_callback or function()
             closeWidget(self)
         end,
         right_icon = "appbar.search",

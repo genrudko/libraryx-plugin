@@ -642,4 +642,119 @@ function LibraryRepo:listCatalogBooks(limit, offset)
     end)
 end
 
+
+local FAVORITE_COLLECTIONS = {
+    { slug="to_read", label="favorite_to_read", order=10 },
+    { slug="read", label="favorite_read", order=20 },
+    { slug="later", label="favorite_later", order=30 },
+    { slug="worthy", label="favorite_worthy", order=40 },
+    { slug="trash", label="favorite_trash", order=50 },
+    { slug="unknown", label="favorite_unknown", order=60 },
+}
+
+local function favoriteCollectionName(slug)
+    for _, spec in ipairs(FAVORITE_COLLECTIONS) do
+        if spec.slug == slug then return "libraryx:favorite:" .. slug end
+    end
+end
+
+function LibraryRepo:ensureFavoriteCollections()
+    local db=self.storage:open()
+    local stmt=db:prepare("INSERT OR IGNORE INTO collections(name,sort_order) VALUES (?,?);")
+    for _,spec in ipairs(FAVORITE_COLLECTIONS) do
+        step_done(stmt,"libraryx:favorite:"..spec.slug,spec.order)
+    end
+end
+
+function LibraryRepo:listFavoriteCollections()
+    self:ensureFavoriteCollections()
+    local out={}
+    for _,spec in ipairs(FAVORITE_COLLECTIONS) do
+        out[#out+1]={slug=spec.slug,label=spec.label,order=spec.order}
+    end
+    return out
+end
+
+function LibraryRepo:hasFavorite(book_id,slug)
+    local name=assert(favoriteCollectionName(slug),"unknown favorite tag")
+    local db=self.storage:open()
+    local stmt=db:prepare([[
+        SELECT 1 FROM book_collections bc
+        JOIN collections c ON c.id=bc.collection_id
+        WHERE bc.book_id=? AND c.name=? LIMIT 1;
+    ]])
+    return stmt:reset():bind(book_id,name):step() ~= nil
+end
+
+function LibraryRepo:setFavorite(book_id,slug,enabled)
+    local name=assert(favoriteCollectionName(slug),"unknown favorite tag")
+    self:ensureFavoriteCollections()
+    local db=self.storage:open()
+    if enabled then
+        local stmt=db:prepare("SELECT id FROM collections WHERE name=? LIMIT 1;")
+        local row=stmt:reset():bind(name):step()
+        assert(row and row[1],"favorite collection missing")
+        step_done(db:prepare([[
+            INSERT OR IGNORE INTO book_collections(book_id,collection_id) VALUES (?,?);
+        ]]),book_id,row[1])
+    else
+        step_done(db:prepare([[
+            DELETE FROM book_collections
+            WHERE book_id=? AND collection_id=(SELECT id FROM collections WHERE name=? LIMIT 1);
+        ]]),book_id,name)
+    end
+end
+
+
+function LibraryRepo:listFavoriteBooks(slug)
+    local name=slug and assert(favoriteCollectionName(slug),"unknown favorite tag") or nil
+    self:ensureFavoriteCollections()
+    local db=self.storage:open()
+    local where=name and [[
+        b.active=1 AND EXISTS (
+            SELECT 1 FROM book_collections bc
+            JOIN collections c ON c.id=bc.collection_id
+            WHERE bc.book_id=b.id AND c.name=?
+        )
+    ]] or [[
+        b.active=1 AND EXISTS (
+            SELECT 1 FROM book_collections bc
+            JOIN collections c ON c.id=bc.collection_id
+            WHERE bc.book_id=b.id AND c.name LIKE 'libraryx:favorite:%'
+        )
+    ]]
+    local stmt=db:prepare(([[SELECT
+        b.id,b.path,b.title,b.series,b.series_index,b.language,
+        b.format,b.filesize,b.last_read_at,b.percent_finished,
+        b.reading_status,b.filemtime,b.added_at,
+        COALESCE((SELECT group_concat(x.name,char(10)) FROM (
+            SELECT a.name AS name FROM book_authors ba2
+            JOIN authors a ON a.id=ba2.author_id
+            WHERE ba2.book_id=b.id ORDER BY ba2.ordinal
+        ) x),'') AS authors,
+        COALESCE((SELECT group_concat(y.name,char(10)) FROM (
+            SELECT g.name AS name FROM book_genres bg2
+            JOIN genres g ON g.id=bg2.genre_id
+            WHERE bg2.book_id=b.id ORDER BY g.name
+        ) y),'') AS genres
+        FROM books b WHERE ]]..where..[[
+        ORDER BY b.sort_title,b.title,b.id;]]))
+    if name then stmt:reset():bind(name) end
+    return collect_rows(stmt,function(row)
+        return {
+            id=tonumber(row[1]),path=row[2],title=row[3],series=row[4],
+            series_index=tonumber(row[5]),language=row[6],format=row[7],
+            filesize=tonumber(row[8]),last_read_at=tonumber(row[9]),
+            percent_finished=tonumber(row[10]),reading_status=row[11],
+            filemtime=tonumber(row[12]),added_at=tonumber(row[13]),
+            authors=row[14] or "",genres=row[15] or "",
+        }
+    end)
+end
+
+function LibraryRepo:deleteBookByPath(path)
+    local db=self.storage:open()
+    step_done(db:prepare("DELETE FROM books WHERE path=?;"),path)
+end
+
 return LibraryRepo

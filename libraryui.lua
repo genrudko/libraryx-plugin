@@ -1,6 +1,8 @@
-local TextViewer = require("ui/widget/textviewer")
+local BookDetails = require("libraryxbookdetails")
+local CheckButton = require("ui/widget/checkbutton")
+local FileManager = require("apps/filemanager/filemanager")
+local Screen = require("device").screen
 local Font = require("ui/font")
-local FileManagerConverter = require("apps/filemanager/filemanagerconverter")
 local ButtonDialog = require("ui/widget/buttondialog")
 local ReaderUI = require("apps/reader/readerui")
 local UIManager = require("ui/uimanager")
@@ -32,20 +34,6 @@ local SORT_SERIES_INDEX = "series_index"
 local CATALOG_REVERSE_PREFIX = "libraryx_catalog_reverse_"
 local TITLES_REVERSE_KEY = "libraryx_titles_reverse"
 
-local BOOK_DETAILS_TEXT_TYPE = "libraryx_book_info"
-local BOOK_DETAILS_FONT_SIZE = 20
-local BOOK_DETAILS_TEXT_TYPES = {
-    [BOOK_DETAILS_TEXT_TYPE] = {
-        monospace_font = false,
-        font_size = BOOK_DETAILS_FONT_SIZE,
-        justified = true,
-    },
-}
-local BOOK_DETAILS_STYLESHEET = [[
-body {
-    font-family: 'Noto Sans', sans-serif;
-}
-]]
 
 function LibraryUI.new(plugin, repo)
     return setmetatable({
@@ -212,6 +200,15 @@ function LibraryUI:bookSearchText(book)
     }, "\n")
 end
 
+local function sanitizeCardGenres(raw)
+    local out={}
+    for line in tostring(raw or ""):gmatch("[^\n]+") do
+        line=line:gsub("^%s+",""):gsub("%s+$","")
+        if line~="" and not line:match("^%d%d%d%d[-.]%d%d[-.]%d%d") and not line:match("^[/\\\\]") and not line:match("^[0-9a-fA-F]{32,}$") then out[#out+1]=line end
+    end
+    return table.concat(out,", ")
+end
+
 function LibraryUI:toBookListItems(books, opts)
     opts = opts or {}
     local items = {}
@@ -230,9 +227,13 @@ function LibraryUI:toBookListItems(books, opts)
         if b.language and b.language ~= "" then
             context[#context + 1] = b.language:upper()
         end
+        local genres = sanitizeCardGenres(b.genres)
+        if genres ~= "" then
+            context[#context + 1] = genres
+        end
         -- Keep card context deterministic and compact. FB2/EPUB keywords are
         -- often free-form and may contain dates or other cataloging noise, so
-        -- they stay searchable but are not rendered in the visible card.
+        -- only sanitized values are rendered in the visible card.
         local authors_and_meta = authors
         if #context > 0 then
             authors_and_meta = authors_and_meta .. "\n" .. table.concat(context, ", ")
@@ -265,145 +266,25 @@ function LibraryUI:toBookListItems(books, opts)
     return items, display_meta
 end
 
-local function markdownEscape(text)
-    text = tostring(text or "")
-    text = text:gsub("\\", "\\\\")
-    text = text:gsub("([%*_#%[%]])", "\\%1")
-    return text
-end
-
-local function readableDate(ts)
-    ts = tonumber(ts)
-    if not ts or ts <= 0 then return nil end
-    return os.date("%Y-%m-%d %H:%M", ts)
-end
-
-function LibraryUI:bookDetailsText(book)
-    local lines = {}
-
-    local authors = (book.authors and book.authors ~= "")
-        and book.authors:gsub("\n", ", ")
-        or L("unknown_author")
-    lines[#lines + 1] = "**" .. L("author_label") .. ":** " .. markdownEscape(authors)
-
-    if book.series and book.series ~= "" then
-        local series = book.series
-        if book.series_index then
-            series = series .. " #" .. tostring(book.series_index)
-        end
-        lines[#lines + 1] = "**" .. L("series_label") .. ":** " .. markdownEscape(series)
-    end
-
-    if book.language and book.language ~= "" then
-        lines[#lines + 1] = "**" .. L("language_label") .. ":** " .. markdownEscape(book.language:upper())
-    end
-
-    if book.genres and book.genres ~= "" then
-        lines[#lines + 1] = "**" .. L("genres_label") .. ":** "
-            .. markdownEscape(book.genres:gsub("\n", ", "))
-    end
-
-    local format = book.format or ""
-    local path_l = (book.path or ""):lower()
-    if path_l:match("%.fb2%.zip$") then format = "FB2.ZIP" end
-    if format ~= "" then
-        lines[#lines + 1] = "**" .. L("format_label") .. ":** " .. markdownEscape(format:upper())
-    end
-    if book.filesize and book.filesize > 0 then
-        lines[#lines + 1] = "**" .. L("size_label") .. ":** " .. util.getFriendlySize(book.filesize)
-    end
-
-    local progress = tonumber(book.percent_finished)
-    if progress then
-        lines[#lines + 1] = "**" .. L("progress_label") .. ":** "
-            .. string.format("%.2f%%", progress * 100)
-    end
-
-    local last_read = readableDate(book.last_read_at)
-    lines[#lines + 1] = "**" .. L("last_read_label") .. ":** "
-        .. (last_read or L("not_read"))
-
-    local added = readableDate(book.added_at)
-    if added then
-        lines[#lines + 1] = "**" .. L("added_label") .. ":** " .. added
-    end
-    local file_date = readableDate(book.filemtime)
-    if file_date then
-        lines[#lines + 1] = "**" .. L("file_date_label") .. ":** " .. file_date
-    end
-
-    lines[#lines + 1] = ""
-    lines[#lines + 1] = "**" .. L("description_label") .. "**"
-    local description = book.description
-    if description and description ~= "" then
-        description = util.htmlToPlainTextIfHtml(description)
-        lines[#lines + 1] = markdownEscape(description)
-    else
-        lines[#lines + 1] = L("no_description")
-    end
-
-    lines[#lines + 1] = ""
-    lines[#lines + 1] = "**" .. L("path_label") .. ":** " .. markdownEscape(book.path or "")
-
-    return table.concat(lines, "\n\n")
-end
-
 function LibraryUI:showBookDetails(book)
-    local full = self.repo:getBookDetails(book.id) or book
-    Debug.log("show book details", full.path or "")
-
-    local details_html = FileManagerConverter:mdToHtml(
-        self:bookDetailsText(full), "", BOOK_DETAILS_STYLESHEET)
-
+    local full=self.repo:getBookDetails(book.id) or book
+    Debug.log("show book details",full.path or "")
+    local cover_image
+    local bookinfo=self.plugin.ui and self.plugin.ui.bookinfo
+    if bookinfo then
+        local ok,image=pcall(bookinfo.getCoverImage,bookinfo,nil,full.path)
+        if ok then cover_image=image end
+    end
     local viewer
-    viewer = TextViewer:new{
-        title = full.title or util.splitFilePathName(full.path or ""),
-        title_face = Font:getFace("x_smalltfont"),
-        title_multilines = true,
-        title_shrink_font_to_fit = true,
-        text = details_html,
-        text_format = "html",
-        text_type = BOOK_DETAILS_TEXT_TYPE,
-        text_types = BOOK_DETAILS_TEXT_TYPES,
-        show_menu = false,
-        add_default_buttons = false,
-        buttons_table = {
-            {
-                {
-                    text = L("read_book"),
-                    callback = function()
-                        UIManager:close(viewer)
-                        UIManager:nextTick(function()
-                            ReaderUI:showReader(full.path)
-                        end)
-                    end,
-                },
-                {
-                    text = L("cover"),
-                    callback = function()
-                        local bookinfo = self.plugin.ui and self.plugin.ui.bookinfo
-                        if bookinfo then
-                            bookinfo:onShowBookCover(full.path)
-                        end
-                    end,
-                },
-            },
-            {
-                {
-                    text = L("go_to"),
-                    callback = function()
-                        self:showGoTo(full)
-                    end,
-                },
-                {
-                    text = L("close"),
-                    callback = function()
-                        UIManager:close(viewer)
-                    end,
-                },
-            },
-        },
+    viewer=BookDetails:new{
+        plugin=self.plugin,ui=self,book=full,cover_image=cover_image,
+        on_read=function()
+            UIManager:close(viewer)
+            UIManager:nextTick(function() ReaderUI:showReader(full.path) end)
+        end,
+        on_favorites=function() self:showFavoriteDialog(full) end,
     }
+    self.menus[#self.menus+1]=viewer
     UIManager:show(viewer)
 end
 
@@ -427,96 +308,127 @@ function LibraryUI:showBookInfo(book)
 end
 
 function LibraryUI:showGoTo(book)
-    local dialog
-    local buttons = {}
-
-    local first_author = first_value(book.authors)
-    local author = self:findAuthorByName(first_author)
-    if author then
-        buttons[#buttons + 1] = {
-            {
-                text = L("go_to_author"),
-                callback = function()
-                    UIManager:close(dialog)
-                    self:showAuthor(author)
-                end,
-            },
-        }
+    local rows = {}
+    local authors = util.splitToArray(book.authors or "", "\n")
+    for _, name in ipairs(authors) do
+        local author = self:findAuthorByName(name)
+        if author then
+            local a = author
+            rows[#rows + 1] = {
+                name = a.name,
+                mandatory = L("go_to_author"),
+                callback = function() self:showAuthor(a) end,
+            }
+        end
     end
 
     if book.series and book.series ~= "" then
-        buttons[#buttons + 1] = {
-            {
-                text = L("go_to_series"),
-                callback = function()
-                    UIManager:close(dialog)
-                    self:showSeriesBooks(
-                        L("series") .. " / " .. book.series,
-                        self.repo:listBooksBySeries(book.series))
-                end,
-            },
+        local series = book.series
+        rows[#rows + 1] = {
+            name = series,
+            mandatory = L("go_to_series"),
+            callback = function()
+                self:showSeriesBooks(
+                    L("series") .. " / " .. series,
+                    self.repo:listBooksBySeries(series))
+            end,
         }
     end
 
-    local folder = select(1, util.splitFilePathName(book.path))
-    if folder and folder ~= "" then
-        buttons[#buttons + 1] = {
-            {
-                text = L("go_to_folder"),
-                callback = function()
-                    UIManager:close(dialog)
-                    local books = self.repo:listBooksByFolder(folder)
-                    self:showBooks(L("folders") .. " / " .. folder, books, {
-                        sort_mode = SORT_TITLE,
-                        reverse = false,
-                        reload = function(new_mode, new_reverse)
-                            self:showBooks(L("folders") .. " / " .. folder, books, {
-                                sort_mode = new_mode,
-                                reverse = new_reverse,
-                                reload = function() end,
-                            })
-                        end,
-                    })
-                end,
-            },
-        }
-    end
+    rows[#rows + 1] = {
+        name = L("library"),
+        mandatory = L("go_to_catalog"),
+        callback = function() self:showRoot() end,
+    }
 
-    if #buttons == 0 then return end
-    dialog = ButtonDialog:new{
+    self:showCatalogList{
         title = L("go_to"),
-        buttons = buttons,
+        rows = rows,
+        kind = "goto:" .. tostring(book.id),
+        fixed_order = true,
+        alphabet_enabled = false,
+        show_more = false,
+        recreate = function() self:showGoTo(book) end,
+    }
+end
+
+function LibraryUI:removeDeletedBookFromMenu(menu,path)
+    if not menu or not menu.full_item_table then return end
+    for i=#menu.full_item_table,1,-1 do
+        local item=menu.full_item_table[i]
+        if item.libraryx_book and item.libraryx_book.path == path then
+            table.remove(menu.full_item_table,i)
+        end
+    end
+    menu.item_table=menu.full_item_table
+    menu:updateItems(1)
+end
+
+function LibraryUI:showFavoriteDialog(book)
+    local specs=self.repo:listFavoriteCollections()
+    local width=math.floor(Screen:getWidth()*0.72)
+    local checks={}
+    local dialog
+    for _,spec in ipairs(specs) do
+        local slug=spec.slug
+        local check
+        check=CheckButton:new{
+            text=L(spec.label),
+            checked=self.repo:hasFavorite(book.id,slug),
+            width=width,
+            face=Font:getFace("smallinfofont"),
+            callback=function() self.repo:setFavorite(book.id,slug,check.checked) end,
+        }
+        checks[#checks+1]=check
+    end
+    dialog=ButtonDialog:new{
+        title=L("favorites"),
+        width=math.floor(Screen:getWidth()*0.78),
+        _added_widgets=checks,
+        buttons={{
+            {text=L("done"),callback=function() UIManager:close(dialog) end},
+        }},
     }
     UIManager:show(dialog)
 end
 
-function LibraryUI:showBookActions(menu, book)
+function LibraryUI:showBookActions(menu,book)
     local dialog
-    dialog = ButtonDialog:new{
-        title = book.title or "",
-        buttons = {
+    dialog=ButtonDialog:new{
+        title=book.title or "",
+        buttons={
             {
                 {
-                    text = L("read_book"),
-                    callback = function()
+                    text=L("read_book"),
+                    callback=function()
                         UIManager:close(dialog)
-                        self:openBook(menu, book)
+                        self:openBook(menu,book)
                     end,
                 },
                 {
-                    text = L("book_information"),
-                    callback = function()
+                    text=L("delete_book"),
+                    callback=function()
                         UIManager:close(dialog)
-                        self:showBookInfo(book)
+                        FileManager:showDeleteFileDialog(book.path,function()
+                            self.repo:deleteBookByPath(book.path)
+                            self:removeDeletedBookFromMenu(menu,book.path)
+                        end)
                     end,
                 },
             },
             {
                 {
-                    text = L("go_to"),
-                    callback = function()
+                    text=L("go_to"),
+                    callback=function()
                         UIManager:close(dialog)
                         self:showGoTo(book)
+                    end,
+                },
+                {
+                    text=L("favorites"),
+                    callback=function()
+                        UIManager:close(dialog)
+                        self:showFavoriteDialog(book)
                     end,
                 },
             },
@@ -736,6 +648,9 @@ function LibraryUI:_showBooks(title, books, opts)
         item_table = items,
         libraryx_display_metadata = display_meta,
         sort_label = self:sortShortLabel(mode) .. (reverse and " ↓" or ""),
+        libraryx_header_left_icon = opts.header_left_icon,
+        libraryx_header_left_icon_size_ratio = opts.header_left_icon_size_ratio,
+        libraryx_header_left_callback = opts.header_left_callback,
         onMenuSelect = function(_, item)
             self:showBookDetails(item.libraryx_book)
         end,
@@ -761,6 +676,7 @@ function LibraryUI:_showBooks(title, books, opts)
         end,
     }
     self.menus[#self.menus + 1] = menu
+    if opts.onMenuReady then opts.onMenuReady(menu) end
     UIManager:show(menu)
 end
 
@@ -1469,6 +1385,69 @@ function LibraryUI:showDataFilters()
         footer_label = L("filters_short"),
         recreate = function() self:showDataFilters() end,
     }
+end
+
+function LibraryUI:favoriteLabel(slug)
+    if not slug then return L("favorite_all") end
+    for _, spec in ipairs(self.repo:listFavoriteCollections()) do
+        if spec.slug == slug then return L(spec.label) end
+    end
+    return L("favorite_all")
+end
+
+function LibraryUI:showFavoritePicker(menu, current_slug)
+    local dialog
+    local rows = {}
+    local choices = {{ slug=nil, label="favorite_all" }}
+    for _, spec in ipairs(self.repo:listFavoriteCollections()) do
+        choices[#choices+1] = { slug=spec.slug, label=spec.label }
+    end
+    local row = {}
+    for _, choice in ipairs(choices) do
+        local selected = choice.slug == current_slug
+        row[#row+1] = {
+            text=L(choice.label) .. (selected and " ✓" or ""),
+            callback=function()
+                UIManager:close(dialog)
+                if menu then UIManager:close(menu) end
+                self:showFavorites(choice.slug)
+            end,
+        }
+        if #row == 2 then rows[#rows+1]=row; row={} end
+    end
+    if #row > 0 then rows[#rows+1]=row end
+    dialog=ButtonDialog:new{title=L("favorites"),buttons=rows}
+    UIManager:show(dialog)
+end
+
+function LibraryUI:showFavorites(slug)
+    local selected_slug=slug
+    local books=self.repo:listFavoriteBooks(selected_slug)
+    local title=L("favorites") .. " / " .. self:favoriteLabel(selected_slug)
+    local menu
+    local function picker()
+        if menu then self:showFavoritePicker(menu,selected_slug) end
+    end
+    local function options(mode,reverse)
+        return {
+            sort_mode=mode,reverse=reverse,
+            header_left_icon="appbar.menu",
+            header_left_icon_size_ratio=0.78,
+            header_left_callback=picker,
+            onMenuReady=function(m) menu=m end,
+        }
+    end
+    local mode=self:getSortMode()
+    local reverse=self:getSortReverse()
+    local opts=options(mode,reverse)
+    opts.reload=function(new_mode,new_reverse)
+        self:setSortMode(new_mode)
+        self:setSortReverse(new_reverse)
+        local next_opts=options(new_mode,new_reverse)
+        next_opts.reload=function() end
+        self:showBooks(title,books,next_opts)
+    end
+    self:showBooks(title,books,opts)
 end
 
 function LibraryUI:openRandomBook()
