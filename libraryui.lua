@@ -469,7 +469,7 @@ function LibraryUI:showSortDialog(menu, opts)
     UIManager:show(dialog)
 end
 
-function LibraryUI:showBooks(title, books, opts)
+function LibraryUI:_showBooks(title, books, opts)
     opts = opts or {}
 
     local locked = opts.locked_sort
@@ -519,6 +519,25 @@ function LibraryUI:showBooks(title, books, opts)
     UIManager:show(menu)
 end
 
+function LibraryUI:showBooks(title, books, opts)
+    Debug.log("show books begin", title or "", "count=" .. tostring(#(books or {})))
+    local ok, err = xpcall(function()
+        self:_showBooks(title, books, opts)
+    end, debug.traceback)
+
+    if ok then
+        Debug.log("show books scheduled", title or "")
+        return true
+    end
+
+    Debug.log("show books failed", title or "", err)
+    UIManager:show(InfoMessage:new{
+        text = L("internal_error") .. "\n\n" .. tostring(err),
+    })
+    return false, err
+end
+
+
 function LibraryUI:showAllBooks(sort_mode, reverse)
     local books = self.repo:listCatalogBooks(10000, 0)
     self:showBooks(L("all_books"), books, {
@@ -531,6 +550,7 @@ function LibraryUI:showAllBooks(sort_mode, reverse)
 end
 
 function LibraryUI:showSeriesBooks(title, books, reverse)
+    Debug.log("show series books", title or "", "count=" .. tostring(#(books or {})))
     self:showBooks(title, books, {
         locked_sort = SORT_SERIES_INDEX,
         reverse = reverse == true,
@@ -572,9 +592,12 @@ function LibraryUI:showAuthor(author)
             text = name,
             mandatory = tostring(#series_books),
             callback = function()
+                Debug.log("author series selected", author.name, name, "group_count=" .. tostring(#series_books))
+                local canonical_books = self.repo:listBooksBySeries(name)
+                Debug.log("author series queried", name, "canonical_count=" .. tostring(#canonical_books))
                 self:showSeriesBooks(
                     L("authors") .. " / " .. author.name .. " / " .. name,
-                    series_books)
+                    canonical_books)
             end,
         }
     end

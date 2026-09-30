@@ -341,7 +341,7 @@ function LibraryRepo:listBooksByAuthor(author_id)
         SELECT
             b.id, b.path, b.title, b.series, b.series_index, b.language,
             b.format, b.filesize, b.last_read_at, b.percent_finished,
-            b.reading_status, b.filemtime, b.filemtime,
+            b.reading_status, b.filemtime, b.added_at,
             COALESCE((
                 SELECT group_concat(x.name, char(10))
                 FROM (

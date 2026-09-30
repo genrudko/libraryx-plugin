@@ -23,6 +23,7 @@ local function closeWidget(widget)
 end
 
 function AlReaderBookList:init()
+    Debug.log("booklist init begin", self.title or "", "items=" .. tostring(#(self.item_table or {})))
     self.full_item_table = self.item_table or {}
     self.current_query = nil
 
@@ -47,16 +48,28 @@ function AlReaderBookList:init()
 
     -- First build a normal BookList so all stock KOReader navigation state exists.
     BookList.init(self)
+    Debug.log("booklist base init ok", self.title or "")
 
     -- Then replace only the list renderer with KOReader's optimized CoverBrowser
     -- renderer. It already handles lazy cover extraction and e-ink repainting.
     local ok, err = CoverBridge.patch(self, self.libraryx_display_metadata)
     if not ok then
         Debug.log("cover bridge failed", err)
+    else
+        Debug.log("cover bridge ok", self.title or "")
     end
 
     self:installAlReaderFooter()
-    self:updateItems(1)
+    Debug.log("booklist footer ok", self.title or "")
+
+    local render_ok, render_err = xpcall(function()
+        self:updateItems(1)
+    end, debug.traceback)
+    if not render_ok then
+        Debug.log("booklist initial render failed", render_err)
+        error(render_err)
+    end
+    Debug.log("booklist initial render ok", self.title or "")
 end
 
 function AlReaderBookList:installAlReaderFooter()

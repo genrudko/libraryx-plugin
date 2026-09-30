@@ -4,7 +4,15 @@ local function buildProxy(real, display_meta)
     local proxy = {}
 
     setmetatable(proxy, {
-        __index = real,
+        __index = function(_, key)
+            local value = real[key]
+            if type(value) == "function" then
+                return function(_, ...)
+                    return value(real, ...)
+                end
+            end
+            return value
+        end,
         __newindex = function(_, key, value)
             real[key] = value
         end,
