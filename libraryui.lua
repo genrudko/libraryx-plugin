@@ -230,10 +230,9 @@ function LibraryUI:toBookListItems(books, opts)
         if b.language and b.language ~= "" then
             context[#context + 1] = b.language:upper()
         end
-        if b.genres and b.genres ~= "" then
-            context[#context + 1] = b.genres:gsub("\n", ", ")
-        end
-
+        -- Keep card context deterministic and compact. FB2/EPUB keywords are
+        -- often free-form and may contain dates or other cataloging noise, so
+        -- they stay searchable but are not rendered in the visible card.
         local authors_and_meta = authors
         if #context > 0 then
             authors_and_meta = authors_and_meta .. "\n" .. table.concat(context, ", ")

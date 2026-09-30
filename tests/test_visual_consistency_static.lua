@@ -14,6 +14,8 @@ assert(list:find("text_font_size = 11",1,true))
 local ui=slurp("libraryui.lua")
 assert(ui:find('require("alreadercatalogmenu")',1,true))
 assert(not ui:find("UIManager:show(Menu:new{",1,true))
+assert(ui:find('book.genres or ""',1,true)) -- genres remain searchable
+assert(not ui:find('context[#context + 1] = b.genres:gsub',1,true)) -- but never rendered in cards
 
 local catalog=slurp("alreadercatalogmenu.lua")
 assert(catalog:find('left_icon = "chevron.left"',1,true))
