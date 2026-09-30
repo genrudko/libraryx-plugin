@@ -8,11 +8,11 @@ end
 local bridge=slurp("safecardbridge.lua")
 for _, needle in ipairs({
     'function SafeCardBridge.densityScale',
-    'if count == 6 then return 0.88 end',
-    'if count == 7 then return 0.86 end',
-    'if count == 8 then return 0.84 end',
-    'if count == 9 then return 0.82 end',
-    'return 0.80',
+    'if count == 6 then return 0.86 end',
+    'if count == 7 then return 0.79 end',
+    'if count == 8 then return 0.73 end',
+    'if count == 9 then return 0.68 end',
+    'return 0.63',
     'Font.getFace = function',
     'math.floor(size * density + 0.5)',
     'Font.getFace = original_get_face',
