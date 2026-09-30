@@ -3,14 +3,15 @@ local Debug = require("libraryxdebug")
 local SafeCardBridge = {}
 
 
-function SafeCardBridge.densityScale(count)
-    count = tonumber(count) or 4
-    if count <= 5 then return 1.00 end
-    if count == 6 then return 0.86 end
-    if count == 7 then return 0.79 end
-    if count == 8 then return 0.73 end
-    if count == 9 then return 0.68 end
-    return 0.63
+function SafeCardBridge.adaptiveProfile(row_height)
+    -- Typography follows the actual row geometry, not a hard-coded density
+    -- number.  This keeps one font scale for the whole page while allowing
+    -- short lists to expand and use the otherwise empty viewport.
+    local screen_h = math.max(1, require("device").screen:getHeight())
+    local ratio = math.max(0, (tonumber(row_height) or 0) / screen_h)
+    if ratio >= 0.16 then return 1.00 end
+    if ratio <= 0.08 then return 0.63 end
+    return 0.63 + (ratio - 0.08) * (0.37 / 0.08)
 end
 
 
@@ -41,7 +42,19 @@ local function overlayDisplayMetadata(info, meta)
         copy[key] = value
     end
     copy.title = meta.title
+    local secondary = {}
+    if meta.card_context and meta.card_context ~= "" then
+        secondary[#secondary + 1] = meta.card_context
+    end
+    if meta.genres and meta.genres ~= "" then
+        secondary[#secondary + 1] = meta.genres
+    end
     copy.authors = meta.authors
+    if #secondary > 0 then
+        copy.authors = (copy.authors and copy.authors ~= "" and (copy.authors .. "\n") or "")
+            .. table.concat(secondary, ", ")
+    end
+    copy.genres = meta.genres
     copy.language = meta.language
     copy.series = meta.series
     copy.series_index = meta.series_index
@@ -187,40 +200,45 @@ function SafeCardBridge.patch(menu, display_meta)
     menu.onCloseWidget = modules.CoverMenu.onCloseWidget
     menu._recalculateDimen = modules.ListMenu._recalculateDimen
 
+    local original_recalculate = modules.ListMenu._recalculateDimen
+    menu._recalculateDimen = function(self)
+        local target_rows = tonumber(self.libraryx_target_rows)
+            or tonumber(self.libraryx_files_per_page)
+            or tonumber(G_reader_settings:readSetting("libraryx_cards_per_page"))
+            or 4
+        local item_count = #(self.item_table or {})
+        self.files_per_page = item_count > 0 and math.min(target_rows, item_count) or target_rows
+        return original_recalculate(self)
+    end
+
     local original_build = modules.ListMenu._updateItemsBuildUI
     menu._updateItemsBuildUI = function(self)
-        local density = SafeCardBridge.densityScale(self.files_per_page)
-        if density >= 0.999 then
-            return original_build(self)
-        end
+        local density = SafeCardBridge.adaptiveProfile(self.item_height)
+        if density >= 0.999 then return original_build(self) end
 
-        -- KOReader ListMenu already scales fonts from item height, but on PW5
-        -- its 24/22/18pt caps keep 6-row mode visually almost as large as 4/5.
-        -- Apply an additional deterministic density multiplier while the row
-        -- widgets are being built. Restoring Font.getFace immediately keeps
-        -- this local to LibraryX and prevents cross-widget side effects.
+        -- Upstream already derives type from row height, but its generous
+        -- maximums make dense PW5 rows look nearly as large as sparse ones.
+        -- Apply one geometry-derived multiplier to the complete page.
         local original_get_face = Font.getFace
         Font.getFace = function(font_self, name, size, ...)
-            if type(size) == "number"
-                and (name == "cfont" or name == "infont")
-            then
+            if type(size) == "number" and (name == "cfont" or name == "infont") then
                 size = math.max(9, math.floor(size * density + 0.5))
             end
             return original_get_face(font_self, name, size, ...)
         end
-
-        local ok, build_err = xpcall(function()
-            original_build(self)
-        end, debug.traceback)
+        local ok, build_err = xpcall(function() original_build(self) end, debug.traceback)
         Font.getFace = original_get_face
         if not ok then error(build_err) end
     end
 
     menu.display_mode_type = "list"
-    menu.files_per_page = tonumber(menu.libraryx_files_per_page)
+    menu.libraryx_target_rows = tonumber(menu.libraryx_files_per_page)
         or tonumber(menu.files_per_page)
         or tonumber(G_reader_settings:readSetting("libraryx_cards_per_page"))
         or 4
+    local target_rows = menu.libraryx_target_rows
+    local item_count = #(menu.item_table or {})
+    menu.files_per_page = item_count > 0 and math.min(target_rows, item_count) or target_rows
 
     -- Real covers are handled by KOReader's own BookInfoManager cache and
     -- forked background extractor. The explicit adapter above keeps LibraryX

@@ -57,7 +57,8 @@ end
 
 function AlReaderBookList:init()
     Debug.log("booklist init begin", self.title or "", "items=" .. tostring(#(self.item_table or {})))
-    self.files_per_page = tonumber(self.libraryx_files_per_page) or cardsPerPage()
+    self.libraryx_target_rows = tonumber(self.libraryx_files_per_page) or cardsPerPage()
+    self.files_per_page = self.libraryx_target_rows
     self.full_item_table = self.item_table or {}
     self.current_query = nil
 
@@ -120,6 +121,7 @@ function AlReaderBookList:showFooterMenu()
 
     local function choose(count)
         G_reader_settings:saveSetting(CARDS_PER_PAGE_KEY, count)
+        self.libraryx_target_rows = count
         self.files_per_page = count
         self.libraryx_files_per_page = count
         if dialog then UIManager:close(dialog) end

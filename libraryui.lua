@@ -228,20 +228,14 @@ function LibraryUI:toBookListItems(books, opts)
             context[#context + 1] = b.language:upper()
         end
         local genres = sanitizeCardGenres(b.genres)
-        if genres ~= "" then
-            context[#context + 1] = genres
-        end
         -- Keep card context deterministic and compact. FB2/EPUB keywords are
         -- often free-form and may contain dates or other cataloging noise, so
         -- only sanitized values are rendered in the visible card.
-        local authors_and_meta = authors
-        if #context > 0 then
-            authors_and_meta = authors_and_meta .. "\n" .. table.concat(context, ", ")
-        end
-
         display_meta[b.path] = {
             title = b.title,
-            authors = authors_and_meta,
+            authors = authors,
+            card_context = table.concat(context, ", "),
+            genres = genres,
             series = nil,
             series_index = nil,
             language = b.language,
