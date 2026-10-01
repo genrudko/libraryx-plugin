@@ -141,6 +141,11 @@ function LibraryX:init()
     if self.ui.document then
         self:_extendReaderMenuOrder()
         self.ui.menu:registerToMainMenu(self)
+        -- ReaderMenu builds and caches tab_item_table before external plugins
+        -- are instantiated. Invalidate that cache so the next menu open runs
+        -- setUpdateItemTable() again with LibraryX in registered_widgets and
+        -- with the updated reader_menu_order.
+        self.ui.menu.tab_item_table = nil
         return
     end
 

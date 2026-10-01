@@ -16,6 +16,8 @@ assert(main:find('table.insert(buttons, insert_at, "libraryx_reader")', 1, true)
 assert(main:find('if self.ui.document then', 1, true))
 assert(main:find('self:_extendReaderMenuOrder()', 1, true))
 assert(main:find('self.ui.menu:registerToMainMenu(self)', 1, true))
+assert(main:find('self.ui.menu.tab_item_table = nil', 1, true),
+    'ReaderMenu cache must be invalidated after late plugin registration')
 
 assert(main:find('menu_items.libraryx_reader = {', 1, true))
 assert(main:find('icon = "book.opened"', 1, true))
