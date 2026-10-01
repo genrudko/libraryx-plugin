@@ -13,6 +13,7 @@ local SafeCardBridge = require("safecardbridge")
 local Debug = require("libraryxdebug")
 local L = require("libraryxi18n").t
 local Settings = require("libraryxsettings")
+local KOReaderMenu = require("libraryxkoreadermenu")
 
 local MIN_CARDS_PER_PAGE = 3
 local MAX_CARDS_PER_PAGE = 10
@@ -86,6 +87,7 @@ function AlReaderBookList:init()
 
     -- First build a normal BookList so all stock KOReader navigation state exists.
     BookList.init(self)
+    KOReaderMenu.attach(self, self.libraryx_filemanager_menu)
     Debug.log("booklist base init ok", self.title or "")
 
     -- Then replace only the list renderer with KOReader's optimized CoverBrowser

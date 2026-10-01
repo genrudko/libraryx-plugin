@@ -16,6 +16,7 @@ local VerticalSpan = require("ui/widget/verticalspan")
 local util = require("util")
 local L = require("libraryxi18n").t
 local Settings = require("libraryxsettings")
+local KOReaderMenu = require("libraryxkoreadermenu")
 local Screen = Device.screen
 
 local BookDetails = InputContainer:extend{
@@ -160,6 +161,7 @@ function BookDetails:init()
     }
 
     self[1] = CenterContainer:new{ dimen = Screen:getSize(), self.frame }
+    KOReaderMenu.attach(self, self.libraryx_filemanager_menu)
     if Device:hasKeys() then
         self.key_events.Close = { { Device.input.group.Back } }
     end

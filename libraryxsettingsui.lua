@@ -6,6 +6,7 @@ local Screen = require("device").screen
 local TouchMenu = require("ui/widget/touchmenu")
 local Settings = require("libraryxsettings")
 local L = require("libraryxi18n").t
+local KOReaderMenu = require("libraryxkoreadermenu")
 
 local SettingsUI = {}
 
@@ -179,7 +180,7 @@ function SettingsUI.menu()
 end
 
 
-function SettingsUI.show()
+function SettingsUI.show(filemanager_menu)
     local root = SettingsUI.menu()
     local tab = { icon = "appbar.settings" }
     for _, item in ipairs(root.sub_item_table or {}) do
@@ -191,6 +192,7 @@ function SettingsUI.show()
         width = Screen:getWidth(),
         tab_item_table = { tab },
     }
+    KOReaderMenu.attach(menu, filemanager_menu)
     UIManager:show(menu)
     return menu
 end

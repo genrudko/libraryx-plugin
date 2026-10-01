@@ -275,6 +275,7 @@ function LibraryUI:showBookDetails(book)
     local viewer
     viewer=BookDetails:new{
         plugin=self.plugin,ui=self,book=full,cover_image=cover_image,
+        libraryx_filemanager_menu = self.plugin.ui and self.plugin.ui.menu,
         on_read=function()
             UIManager:close(viewer)
             UIManager:nextTick(function() ReaderUI:showReader(full.path) end)
@@ -644,6 +645,7 @@ function LibraryUI:_showBooks(title, books, opts)
         title = title,
         item_table = items,
         libraryx_display_metadata = display_meta,
+        libraryx_filemanager_menu = self.plugin.ui and self.plugin.ui.menu,
         sort_label = self:sortShortLabel(mode) .. (reverse and " ↓" or ""),
         libraryx_header_left_icon = opts.header_left_icon,
         libraryx_header_left_icon_size_ratio = opts.header_left_icon_size_ratio,
@@ -796,6 +798,7 @@ function LibraryUI:showSeriesBooks(title, books, sort_mode, reverse)
         title = title,
         item_table = items,
         libraryx_display_metadata = display_meta,
+        libraryx_filemanager_menu = self.plugin.ui and self.plugin.ui.menu,
         sort_label = self:sortShortLabel(mode) .. (reverse and " ↓" or ""),
         onMenuSelect = function(_, item)
             self:showBookDetails(item.libraryx_book)
@@ -953,6 +956,7 @@ function LibraryUI:showCatalogList(opts)
     menu = AlReaderCatalogMenu:new{
         title = opts.title,
         item_table = items,
+        libraryx_filemanager_menu = self.plugin.ui and self.plugin.ui.menu,
         enable_search = opts.enable_search ~= false,
         show_back = opts.show_back ~= false,
         show_more = opts.show_more ~= false,
@@ -1495,7 +1499,9 @@ function LibraryUI:showRoot()
         },
         {
             name = L("settings"),
-            callback = function() SettingsUI.show() end,
+            callback = function()
+                SettingsUI.show(self.plugin.ui and self.plugin.ui.menu)
+            end,
         },
         {
             name = L("scan_library"),
@@ -1516,6 +1522,8 @@ function LibraryUI:showRoot()
     menu = AlReaderCatalogMenu:new{
         title = L("library"),
         item_table = items,
+        libraryx_filemanager_menu = self.plugin.ui and self.plugin.ui.menu,
+        libraryx_top_inset = Screen:scaleBySize(24),
         enable_search = false,
         show_back = false,
         show_more = false,

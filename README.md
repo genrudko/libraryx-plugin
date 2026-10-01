@@ -145,6 +145,7 @@ LibraryX is an indexed library frontend for KOReader inspired by AlReaderX navig
 - navigation to every author of a book, its series and catalog
 - multi-label Favorites: **To read / Already read / Maybe later / Worth reading / Trash / Something unclear**
 - optional native **Start with LibraryX** integration
+- KOReader native top menu available directly from LibraryX via the standard tap/swipe gestures
 - English and Russian UI, either following KOReader or explicitly selected
 
 ### Settings

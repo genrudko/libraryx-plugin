@@ -9,6 +9,7 @@ local UIManager = require("ui/uimanager")
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local util = require("util")
 local L = require("libraryxi18n").t
+local KOReaderMenu = require("libraryxkoreadermenu")
 
 
 local function splitBreadcrumb(title)
@@ -42,6 +43,7 @@ function AlReaderCatalogMenu:init()
         title = title_current,
         title_face = Font:getFace("x_smalltfont"),
         title_shrink_font_to_fit = true,
+        title_top_padding = self.libraryx_top_inset,
         subtitle = title_parent,
         subtitle_face = Font:getFace("xx_smallinfofont"),
         subtitle_truncate_left = true,
@@ -59,6 +61,7 @@ function AlReaderCatalogMenu:init()
     }
 
     Menu.init(self)
+    KOReaderMenu.attach(self, self.libraryx_filemanager_menu)
     self:installFooter()
 end
 

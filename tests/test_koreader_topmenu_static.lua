@@ -1,0 +1,23 @@
+local function slurp(path)
+    local f=assert(io.open(path,'r')); local s=f:read('*a'); f:close(); return s
+end
+local bridge=slurp('libraryxkoreadermenu.lua')
+local catalog=slurp('alreadercatalogmenu.lua')
+local books=slurp('alreaderbooklist.lua')
+local details=slurp('libraryxbookdetails.lua')
+local settings=slurp('libraryxsettingsui.lua')
+local ui=slurp('libraryui.lua')
+
+assert(bridge:find('DTAP_ZONE_MENU',1,true), 'native KOReader top zone missing')
+assert(bridge:find('DTAP_ZONE_MENU_EXT',1,true), 'native KOReader extended top zone missing')
+assert(bridge:find('filemanager_menu:onTapShowMenu(ges)',1,true), 'tap is not forwarded to FileManager menu')
+assert(bridge:find('filemanager_menu:onSwipeShowMenu(ges)',1,true), 'swipe is not forwarded to FileManager menu')
+assert(catalog:find('KOReaderMenu.attach(self, self.libraryx_filemanager_menu)',1,true), 'catalog top-menu bridge missing')
+assert(books:find('KOReaderMenu.attach(self, self.libraryx_filemanager_menu)',1,true), 'book-list top-menu bridge missing')
+assert(details:find('KOReaderMenu.attach(self, self.libraryx_filemanager_menu)',1,true), 'details top-menu bridge missing')
+assert(settings:find('KOReaderMenu.attach(menu, filemanager_menu)',1,true), 'settings top-menu bridge missing')
+assert(catalog:find('title_top_padding = self.libraryx_top_inset',1,true), 'catalog top inset missing')
+assert(ui:find('libraryx_top_inset = Screen:scaleBySize(24)',1,true), 'root top inset missing')
+local _, count = ui:gsub('libraryx_filemanager_menu = self%.plugin%.ui and self%.plugin%.ui%.menu', '')
+assert(count >= 4, 'FileManager menu handle not passed to all LibraryX views')
+print('test_koreader_topmenu_static: PASS')
