@@ -12,6 +12,7 @@ local SettingsUI = require("libraryxsettingsui")
 local Settings = require("libraryxsettings")
 local Updater = require("libraryxupdater")
 local Icons = require("libraryxmenuicons")
+local Lifecycle = require("libraryxlifecycle")
 
 local ROOT_KEY = "libraryx_library_root"
 local START_WITH_VALUE = "libraryx"
@@ -153,6 +154,48 @@ function LibraryX:onNetworkConnected()
     if self.ui and not self.ui.document then
         Updater.checkBackground()
     end
+end
+
+-- KOReader's Exit/Restart event reaches plugins before the host UI starts its
+-- CloseWidget cascade. Latch that intent so a Reader close caused by a real
+-- application exit is distinguishable from the ordinary "close book -> return
+-- to LibraryX" path.
+function LibraryX:onExit()
+    Lifecycle.noteExit()
+end
+LibraryX.onRestart = LibraryX.onExit
+
+function LibraryX:onCloseDocument()
+    -- CloseDocument is the last point where ReaderUI still owns the document.
+    -- On a Reader -> Reader switch, keep the original LibraryX provenance for
+    -- the replacement reader. On Exit/Restart, never arm a return.
+    if Lifecycle.isExiting() then
+        Lifecycle.clearReaderReturn()
+        return
+    end
+    if self.ui and self.ui.tearing_down then
+        return
+    end
+    Lifecycle.prepareReaderReturn()
+end
+
+function LibraryX:onCloseWidget()
+    -- FileManager sets tearing_down when it is being replaced by ReaderUI.
+    -- LibraryX deliberately stays parked underneath so closing the book can
+    -- return to the same library view.
+    if self.ui and self.ui.tearing_down and not Lifecycle.isExiting() then
+        return
+    end
+
+    -- ReaderUI has already set self.document=nil by the time CloseWidget is
+    -- dispatched, so the return decision must be armed earlier by
+    -- onCloseDocument().
+    if not Lifecycle.isExiting() and Lifecycle.consumeClosePreservation() then
+        return
+    end
+
+    Lifecycle.closeAll()
+    self.library_menu = nil
 end
 
 function LibraryX:getLibraryRoot()
@@ -409,6 +452,7 @@ function LibraryX:addToMainMenu(menu_items)
         separator = true,
     }
     menu_items.libraryx_updates = {
+        sorting_hint = "libraryx_tab",
         text_func = function()
             local available = Updater.getAvailableUpdate()
             local label = available

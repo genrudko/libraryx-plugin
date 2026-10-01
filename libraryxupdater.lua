@@ -5,6 +5,7 @@ local TextViewer = require("ui/widget/textviewer")
 local UIManager = require("ui/uimanager")
 local Settings = require("libraryxsettings")
 local L = require("libraryxi18n").t
+local Lifecycle = require("libraryxlifecycle")
 
 local Updater = {}
 
@@ -271,6 +272,7 @@ function Updater.install(release)
     release = release or _cached_release
     if not release then return end
     local url = assetURL(release)
+    local new_version = tostring(release.tag_name or ""):gsub("^v", "")
     if not url then
         UIManager:show(InfoMessage:new{
             text = L("updates_no_download"),
@@ -309,13 +311,15 @@ function Updater.install(release)
             })
             return
         end
-        UIManager:show(ConfirmBox:new{
+        local confirm = ConfirmBox:new{
             text = string.format(
                 L("updates_installed_restart"),
-                release.tag_name:gsub("^v", "")),
+                new_version),
             ok_text = L("restart"),
             ok_callback = function() UIManager:restartKOReader() end,
-        })
+        }
+        Lifecycle.track(confirm)
+        UIManager:show(confirm)
     end)
 end
 
@@ -368,6 +372,7 @@ function Updater.check()
                 },
             },
         }
+        Lifecycle.track(viewer)
         UIManager:show(viewer)
     end)
 end

@@ -6,6 +6,7 @@ local Font = require("ui/font")
 local ButtonDialog = require("ui/widget/buttondialog")
 local ReaderUI = require("apps/reader/readerui")
 local UIManager = require("ui/uimanager")
+local Lifecycle = require("libraryxlifecycle")
 local util = require("util")
 local ffiUtil = require("ffi/util")
 local filemanagerutil = require("apps/filemanager/filemanagerutil")
@@ -279,17 +280,20 @@ function LibraryUI:showBookDetails(book)
         libraryx_filemanager_menu = self.plugin.ui and self.plugin.ui.menu,
         on_read=function()
             UIManager:close(viewer)
+            Lifecycle.markReaderLaunch()
             UIManager:nextTick(function() ReaderUI:showReader(full.path) end)
         end,
         on_favorites=function() self:showFavoriteDialog(full) end,
     }
     self.menus[#self.menus+1]=viewer
+    Lifecycle.track(viewer)
     UIManager:show(viewer)
 end
 
 function LibraryUI:openBook(menu, book)
     Debug.log("open book", book.path)
     UIManager:close(menu)
+    Lifecycle.markReaderLaunch()
     UIManager:nextTick(function()
         ReaderUI:showReader(book.path)
     end)
@@ -675,6 +679,7 @@ function LibraryUI:_showBooks(title, books, opts)
         end,
     }
     self.menus[#self.menus + 1] = menu
+    Lifecycle.track(menu)
     if opts.onMenuReady then opts.onMenuReady(menu) end
     UIManager:show(menu)
 end
@@ -822,6 +827,7 @@ function LibraryUI:showSeriesBooks(title, books, sort_mode, reverse)
     }
 
     self.menus[#self.menus + 1] = menu
+    Lifecycle.track(menu)
     UIManager:show(menu)
     Debug.log("show series books SAFE CARD shown", title or "", "sort=" .. tostring(mode), "reverse=" .. tostring(reverse))
 end
@@ -985,6 +991,7 @@ function LibraryUI:showCatalogList(opts)
         end,
     }
     self.menus[#self.menus + 1] = menu
+    Lifecycle.track(menu)
     UIManager:show(menu)
 end
 
@@ -1542,6 +1549,7 @@ function LibraryUI:showRoot()
     }
     self.plugin.library_menu = menu
     self.menus[#self.menus + 1] = menu
+    Lifecycle.track(menu)
     UIManager:show(menu)
 end
 

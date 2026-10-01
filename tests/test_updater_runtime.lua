@@ -31,7 +31,7 @@ function fake_ffi_util.purgeDir(path)
     return ok, ok and nil or "rm failed"
 end
 
-local archive_version = "0.4.1-beta"
+local archive_version = "0.4.2-beta"
 local Reader = {}
 Reader.__index = Reader
 function Reader:new() return setmetatable({}, self) end
@@ -81,6 +81,14 @@ package.loaded['ffi/archiver'] = { Reader = Reader }
 
 local U=require('libraryxupdater')
 
+local f_updater = assert(io.open('libraryxupdater.lua', 'r'))
+local updater_source = f_updater:read('*a')
+f_updater:close()
+assert(updater_source:find('local new_version = tostring(release.tag_name or ""):gsub("^v", "")', 1, true),
+    'Updater.install must derive the expected version from the selected release')
+assert(updater_source:find('installStaged(zip_path, pluginDir(), new_version)', 1, true),
+    'Updater.install must pass the selected release version to staged validation')
+
 assert(U._isNewer('0.4.0-beta','0.3.0-beta'))
 assert(U._isNewer('0.4.0','0.4.0-beta'))
 assert(not U._isNewer('0.4.0-beta','0.4.0'))
@@ -116,7 +124,7 @@ end
 -- Successful install replaces the complete directory, so removed old files
 -- cannot linger after an update.
 writeOld()
-local ok, err = U._installStaged("fake.zip", final_dir, "0.4.1-beta")
+local ok, err = U._installStaged("fake.zip", final_dir, "0.4.2-beta")
 assert(ok, tostring(err))
 assert(pathMode(final_dir .. "/new.lua") == "file")
 assert(pathMode(final_dir .. "/old.lua") == nil)
@@ -126,11 +134,11 @@ assert(pathMode(final_dir .. ".libraryx-backup") == nil)
 -- A mismatched release asset is rejected before the live plugin is renamed.
 writeOld()
 archive_version = "9.9.9-beta"
-ok, err = U._installStaged("fake.zip", final_dir, "0.4.1-beta")
+ok, err = U._installStaged("fake.zip", final_dir, "0.4.2-beta")
 assert(not ok and tostring(err):find("version mismatch", 1, true))
 assert(pathMode(final_dir .. "/old.lua") == "file")
 assert(pathMode(final_dir .. ".libraryx-backup") == nil)
-archive_version = "0.4.1-beta"
+archive_version = "0.4.2-beta"
 
 -- If activation of the staged directory fails after the backup rename, the
 -- previous plugin directory is restored.
@@ -142,7 +150,7 @@ os.rename = function(src, dst)
     end
     return real_rename(src, dst)
 end
-ok, err = U._installStaged("fake.zip", final_dir, "0.4.1-beta")
+ok, err = U._installStaged("fake.zip", final_dir, "0.4.2-beta")
 os.rename = real_rename
 assert(not ok and tostring(err):find("forced activation failure", 1, true))
 assert(pathMode(final_dir .. "/old.lua") == "file")

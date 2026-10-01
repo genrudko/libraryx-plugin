@@ -10,7 +10,7 @@ required=(
   alreaderbooklist.lua alreadercatalogmenu.lua coverbridge.lua safecardbridge.lua
   debugui.lua libraryxdebug.lua libraryxi18n.lua libraryxsettings.lua
   libraryxsettingsui.lua libraryxkoreadermenu.lua libraryxmenuicons.lua
-  libraryxhttp.lua libraryxupdater.lua
+  libraryxhttp.lua libraryxupdater.lua libraryxlifecycle.lua
 )
 for f in "${required[@]}"; do
   test -f "$f" || { echo "Missing required file: $f" >&2; exit 1; }

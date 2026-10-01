@@ -9,6 +9,7 @@ local L = require("libraryxi18n").t
 local Icons = require("libraryxmenuicons")
 local Updater = require("libraryxupdater")
 local KOReaderMenu = require("libraryxkoreadermenu")
+local Lifecycle = require("libraryxlifecycle")
 
 local SettingsUI = {
     _plugin = nil,
@@ -233,6 +234,16 @@ function SettingsUI.menu()
                 sub_item_table = libraryItems(),
             },
             {
+                text_func = function()
+                    local available = Updater.getAvailableUpdate()
+                    local label = available
+                        and string.format(L("updates_available_short"), available)
+                        or L("settings_updates")
+                    return Icons.label(Icons.UPDATES, label)
+                end,
+                sub_item_table_func = SettingsUI.updatesMenu,
+            },
+            {
                 text = Icons.label(Icons.LIST, L("settings_book_list")),
                 sub_item_table = {
                     {
@@ -272,16 +283,6 @@ function SettingsUI.menu()
             {
                 text = Icons.label(Icons.DATABASE, L("settings_index")),
                 sub_item_table = indexItems(),
-            },
-            {
-                text_func = function()
-                    local available = Updater.getAvailableUpdate()
-                    local label = available
-                        and string.format(L("updates_available_short"), available)
-                        or L("settings_updates")
-                    return Icons.label(Icons.UPDATES, label)
-                end,
-                sub_item_table_func = SettingsUI.updatesMenu,
             },
             {
                 text_func = function()
@@ -335,6 +336,7 @@ function SettingsUI.show(filemanager_menu, plugin)
         tab_item_table = { tab },
     }
     KOReaderMenu.attach(menu, filemanager_menu)
+    Lifecycle.track(menu)
     UIManager:show(menu)
     return menu
 end
