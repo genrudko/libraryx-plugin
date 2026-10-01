@@ -8,7 +8,7 @@ local L = require("libraryxi18n").t
 
 local Updater = {}
 
-local RELEASES_API = "https://api.github.com/repos/genrudko/libraryx-plugin/releases"
+local RELEASES_API = "https://api.github.com/repos/genrudko/libraryx-plugin/releases?per_page=100"
 local RELEASES_PAGE = "https://github.com/genrudko/libraryx-plugin/releases"
 local _cached_release
 local _last_background_check = 0
@@ -72,7 +72,7 @@ end
 local function assetURL(release)
     for _, asset in ipairs(release and release.assets or {}) do
         local name = tostring(asset.name or "")
-        if name:match("%.koplugin%.zip$") or name:match("%.zip$") then
+        if name:match("%.koplugin%.zip$") then
             return asset.browser_download_url
         end
     end
@@ -96,31 +96,145 @@ local function stripMarkdown(text)
     return text
 end
 
+local function safeRelativePath(path)
+    path = tostring(path or "")
+    if path == "" or path:sub(1, 1) == "/" or path:find("\\", 1, true) then
+        return nil
+    end
+    for part in path:gmatch("[^/]+") do
+        if part == "." or part == ".." or part == "" then return nil end
+    end
+    return path
+end
+
+local function purge(path)
+    local lfs = require("libs/libkoreader-lfs")
+    if not lfs.attributes(path, "mode") then return true end
+    local ok_util, ffiUtil = pcall(require, "ffi/util")
+    if not (ok_util and ffiUtil and ffiUtil.purgeDir) then
+        return false, "directory cleanup unavailable"
+    end
+    return ffiUtil.purgeDir(path)
+end
+
 local function unpackStripRoot(zip_path, dest)
     local ok, Archiver = pcall(require, "ffi/archiver")
     if not (ok and Archiver and Archiver.Reader) then
         return false, "archive extractor unavailable"
     end
+    local lfs = require("libs/libkoreader-lfs")
+    if lfs.attributes(dest, "mode") then
+        local cleaned, clean_err = purge(dest)
+        if not cleaned then return false, clean_err end
+    end
+    if not lfs.mkdir(dest) then
+        return false, "could not create staging directory"
+    end
+
     local arc = Archiver.Reader:new()
     if not arc:open(zip_path) then
         local err = arc.err
         arc:close()
+        purge(dest)
         return false, err or "could not open archive"
     end
+
     local extract_err
+    local extracted = 0
     for entry in arc:iterate() do
         local rel = entry.path and entry.path:match("^[^/]+/(.+)$")
         if rel and rel ~= "" then
+            rel = safeRelativePath(rel)
+            if not rel then
+                extract_err = "unsafe archive path"
+                break
+            end
             if not arc:extractToPath(entry.path, dest .. "/" .. rel) then
                 extract_err = arc.err or "extract failed"
                 break
             end
+            extracted = extracted + 1
+        elseif entry.path and entry.path:match("^[^/]+/$") then
+            -- Archive root directory; nothing to extract directly.
+        else
+            extract_err = "unsafe archive path"
+            break
         end
     end
     arc:close()
-    if extract_err then return false, extract_err end
+
+    if extract_err or extracted == 0 then
+        purge(dest)
+        return false, extract_err or "archive is empty"
+    end
+    if lfs.attributes(dest .. "/_meta.lua", "mode") ~= "file" then
+        purge(dest)
+        return false, "invalid LibraryX package"
+    end
     return true
 end
+
+local function installStaged(zip_path, final_dir, expected_version)
+    local lfs = require("libs/libkoreader-lfs")
+    local stage = final_dir .. ".libraryx-update"
+    local backup = final_dir .. ".libraryx-backup"
+
+    local ok, err = purge(stage)
+    if not ok then return false, err end
+    ok, err = purge(backup)
+    if not ok then return false, err end
+
+    ok, err = unpackStripRoot(zip_path, stage)
+    if not ok then return false, err end
+
+    local meta_ok, meta = pcall(dofile, stage .. "/_meta.lua")
+    if not (meta_ok and type(meta) == "table" and meta.name == "libraryx"
+            and type(meta.version) == "string") then
+        purge(stage)
+        return false, "invalid LibraryX metadata"
+    end
+    if expected_version and meta.version ~= expected_version then
+        purge(stage)
+        return false, string.format(
+            "package version mismatch: expected %s, got %s",
+            tostring(expected_version), tostring(meta.version))
+    end
+
+    if lfs.attributes(final_dir, "mode") ~= "directory" then
+        purge(stage)
+        return false, "running plugin directory is missing"
+    end
+
+    local renamed, rename_err = os.rename(final_dir, backup)
+    if not renamed then
+        purge(stage)
+        return false, rename_err or "could not create update backup"
+    end
+
+    renamed, rename_err = os.rename(stage, final_dir)
+    if not renamed then
+        local rolled_back, rollback_err = os.rename(backup, final_dir)
+        purge(stage)
+        if not rolled_back then
+            return false, string.format(
+                "update failed (%s); rollback failed (%s)",
+                tostring(rename_err), tostring(rollback_err))
+        end
+        return false, rename_err or "could not activate staged update"
+    end
+
+    local cleaned, clean_err = purge(backup)
+    if not cleaned then
+        -- The update is already active. Keep a non-.koplugin backup rather
+        -- than rolling back a valid install just because cleanup failed.
+        return true, "backup cleanup failed: " .. tostring(clean_err)
+    end
+    return true
+end
+
+Updater._safeRelativePath = safeRelativePath
+Updater._unpackStripRoot = unpackStripRoot
+Updater._installStaged = installStaged
 
 function Updater.getInstalledVersion()
     return installedVersion()
@@ -186,7 +300,7 @@ function Updater.install(release)
             })
             return
         end
-        local ok, err = unpackStripRoot(zip_path, pluginDir())
+        local ok, err = installStaged(zip_path, pluginDir(), new_version)
         pcall(os.remove, zip_path)
         if not ok then
             UIManager:show(InfoMessage:new{

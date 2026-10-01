@@ -25,5 +25,5 @@ assert(model:find('show_alphabet',1,true), 'alphabet visibility setting missing'
 assert(model:find('update_auto_check',1,true), 'auto update model setting missing')
 assert(model:find('update_channel',1,true), 'update channel model setting missing')
 assert(icons:find('function M.label',1,true), 'menu icon label helper missing')
-assert(meta:find('version = "0.4.0-beta"',1,true), 'release version missing from metadata')
+assert(meta:find('version = "0.4.1-beta"',1,true), 'release version missing from metadata')
 print('test_settings_v2_static: PASS')

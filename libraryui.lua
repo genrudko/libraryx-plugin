@@ -507,39 +507,37 @@ function LibraryUI:showAlphabet(menu, books, mode)
 end
 
 function LibraryUI:showListScaleDialog(menu, recreate)
-    local current = tonumber(G_reader_settings:readSetting("libraryx_cards_per_page")) or 4
+    local current = Settings.get("list_density")
     local dialog
 
-    local function choose(count)
-        G_reader_settings:saveSetting("libraryx_cards_per_page", count)
+    local function choose(value)
+        Settings.set("list_density", value)
         UIManager:close(dialog)
         if menu then UIManager:close(menu) end
         if recreate then recreate() end
     end
 
+    local function option(count)
+        return {
+            text = string.format(L("books_per_screen"), count)
+                .. (current == count and " ✓" or ""),
+            callback = function() choose(count) end,
+        }
+    end
+
+    local auto = {
+        text = L("density_auto") .. (current == "auto" and " ✓" or ""),
+        callback = function() choose("auto") end,
+    }
+
     dialog = ButtonDialog:new{
         title = L("list_scale"),
         buttons = {
-            {
-                {
-                    text = L("scale_large") .. (current == 3 and " ✓" or ""),
-                    callback = function() choose(3) end,
-                },
-                {
-                    text = L("scale_normal") .. (current == 4 and " ✓" or ""),
-                    callback = function() choose(4) end,
-                },
-            },
-            {
-                {
-                    text = L("scale_compact") .. (current == 5 and " ✓" or ""),
-                    callback = function() choose(5) end,
-                },
-                {
-                    text = L("scale_dense") .. (current == 6 and " ✓" or ""),
-                    callback = function() choose(6) end,
-                },
-            },
+            { auto },
+            { option(3), option(4) },
+            { option(5), option(6) },
+            { option(7), option(8) },
+            { option(9), option(10) },
         },
     }
     UIManager:show(dialog)

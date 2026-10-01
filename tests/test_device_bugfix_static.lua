@@ -15,7 +15,7 @@ assert(main:find("refreshLibraryMenu", 1, true))
 local ui = slurp("libraryui.lua")
 assert(not ui:find('require("gettext")', 1, true))
 assert(ui:find('mandatory_func', 1, true))
-assert(ui:find('text_func', 1, true))
+assert(ui:find('Icons.label', 1, true))
 assert(ui:find('self.plugin.library_menu = menu', 1, true))
 
 local i18n = slurp("libraryxi18n.lua")

@@ -10,7 +10,7 @@ assert(ui:find("function LibraryUI:guardedAction",1,true))
 assert(ui:find("function LibraryUI:openSeries",1,true))
 assert(ui:find('self.repo:listBooksBySeries(series_name)',1,true))
 assert(ui:find('self:openSeries(',1,true))
-assert(ui:find("series_context = false",1,true))
+assert(ui:find("series_context = true",1,true))
 
 local repo=slurp("libraryrepo.lua")
 local a=assert(repo:find("function LibraryRepo:listBooksBySeries",1,true))

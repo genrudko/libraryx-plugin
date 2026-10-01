@@ -9,7 +9,7 @@ local list=slurp("alreaderbooklist.lua")
 assert(list:find('function AlReaderBookList:showFooterMenu()',1,true))
 assert(list:find('UIManager:nextTick(function()',1,true))
 assert(list:find('self:showFooterMenu()',1,true))
-assert(list:find('self.files_per_page = count',1,true))
+assert(list:find('self.files_per_page = self.libraryx_target_rows',1,true))
 assert(list:find('self:updateItems(1)',1,true))
 assert(list:find('screen_w * 0.11',1,true))
 

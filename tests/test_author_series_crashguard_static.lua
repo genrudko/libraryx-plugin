@@ -21,6 +21,6 @@ local ui=slurp("libraryui.lua")
 assert(ui:find("function LibraryUI:_showBooks",1,true))
 assert(ui:find("xpcall(function()",1,true))
 assert(ui:find("author series selected",1,true))
-assert(ui:find("self.repo:listBooksBySeries(name)",1,true))
+assert(ui:find("self.repo:listBooksBySeries(series_name)",1,true))
 
 print("test_author_series_crashguard_static: PASS")

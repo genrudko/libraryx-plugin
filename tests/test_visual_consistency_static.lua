@@ -13,7 +13,7 @@ assert(list:find("text_font_size = 10",1,true))
 local ui=slurp("libraryui.lua")
 assert(ui:find('require("alreadercatalogmenu")',1,true))
 assert(not ui:find("UIManager:show(Menu:new{",1,true))
-assert(ui:find('local genres = sanitizeCardGenres(b.genres)',1,true))
+assert(ui:find('local genres = Settings.showGenres() and sanitizeCardGenres(b.genres) or ""',1,true))
 
 local catalog=slurp("alreadercatalogmenu.lua")
 assert(catalog:find('left_icon = self.show_back ~= false and "chevron.left" or nil',1,true))
