@@ -1,0 +1,32 @@
+name: Bootstrap LibraryX v0.4.5-beta
+
+on:
+  push:
+    branches:
+      - "release-bootstrap-v0.4.5-beta"
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  bootstrap:
+    if: github.repository == 'genrudko/libraryx-plugin'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create exact tag and dispatch release workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: 74190cd9b037671b80ebcbef3e09c6436cf175eb
+          RELEASE_TAG: v0.4.5-beta
+        shell: bash
+        run: |
+          set -euo pipefail
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          [[ "$main_sha" == "$TARGET_SHA" ]] || { echo "::error::main moved"; exit 1; }
+          if existing="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha' 2>/dev/null)"; then
+            [[ "$existing" == "$TARGET_SHA" ]] || { echo "::error::tag mismatch"; exit 1; }
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" -f "ref=refs/tags/${RELEASE_TAG}" -f "sha=${TARGET_SHA}" >/dev/null
+          fi
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main -f "tag=${RELEASE_TAG}"
