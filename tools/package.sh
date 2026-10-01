@@ -7,11 +7,17 @@ STAGE="$DIST/libraryx.koplugin"
 rm -rf "$DIST"
 mkdir -p "$STAGE/docs"
 
-cp "$ROOT"/_meta.lua "$ROOT"/main.lua "$ROOT"/compat.lua \
-   "$ROOT"/state.lua "$ROOT"/storage.lua "$ROOT"/model.lua "$ROOT"/libraryrepo.lua \
-   "$ROOT"/indexer.lua "$ROOT"/scanplan.lua "$ROOT"/scanner.lua "$ROOT"/libraryxdebug.lua "$ROOT"/libraryxi18n.lua "$ROOT"/libraryxsettings.lua "$ROOT"/libraryxsettingsui.lua "$ROOT"/libraryxkoreadermenu.lua "$ROOT"/libraryxmenuicons.lua "$ROOT"/libraryxhttp.lua "$ROOT"/libraryxupdater.lua \
-   "$ROOT"/debugui.lua "$ROOT"/coverbridge.lua "$ROOT"/safecardbridge.lua "$ROOT"/alreaderbooklist.lua "$ROOT"/alreadercatalogmenu.lua "$ROOT"/libraryxbookdetails.lua "$ROOT"/libraryui.lua "$ROOT"/README.md "$STAGE"/
+# Every top-level Lua file is a runtime module of the plugin. Copy them as a
+# set instead of maintaining a second hand-written manifest: a newly required
+# module must never be able to pass source tests and then disappear from ZIP.
+cp "$ROOT"/*.lua "$STAGE"/
+cp "$ROOT"/README.md "$STAGE"/
 cp "$ROOT"/docs/*.md "$STAGE/docs"/
+
+# Fail closed if the staged runtime module set differs from the source tree.
+diff -u \
+  <(cd "$ROOT" && find . -maxdepth 1 -type f -name '*.lua' -printf '%f\n' | sort) \
+  <(cd "$STAGE" && find . -maxdepth 1 -type f -name '*.lua' -printf '%f\n' | sort)
 
 (
   cd "$DIST"

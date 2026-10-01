@@ -16,6 +16,6 @@ end
 return {
     name = "libraryx",
     fullname = "LibraryX",
-    version = "0.4.2-beta",
+    version = "0.4.3-beta",
     description = description,
 }
