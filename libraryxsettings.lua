@@ -17,6 +17,10 @@ local specs = {
     details_show_genres = { key = PREFIX .. "details_show_genres", default = true },
     details_show_metadata = { key = PREFIX .. "details_show_metadata", default = true },
     details_show_path = { key = PREFIX .. "details_show_path", default = true },
+    show_alphabet = { key = PREFIX .. "show_alphabet", default = true },
+    scan_on_open = { key = PREFIX .. "scan_on_open", default = false },
+    update_auto_check = { key = PREFIX .. "update_auto_check", default = true },
+    update_channel = { key = PREFIX .. "update_channel", default = "beta" },
 }
 
 local function clamp(value, minv, maxv)
@@ -35,6 +39,11 @@ local function normalize(name, value)
     if name == "language" then
         value = tostring(value or "system"):lower()
         if value ~= "ru" and value ~= "en" then return "system" end
+        return value
+    end
+    if name == "update_channel" then
+        value = tostring(value or "beta"):lower()
+        if value ~= "stable" then return "beta" end
         return value
     end
     if spec.min then
@@ -99,6 +108,10 @@ function Settings.detailsCoverScale() return Settings.get("details_cover_scale")
 function Settings.detailsShowGenres() return Settings.get("details_show_genres") end
 function Settings.detailsShowMetadata() return Settings.get("details_show_metadata") end
 function Settings.detailsShowPath() return Settings.get("details_show_path") end
+function Settings.showAlphabet() return Settings.get("show_alphabet") end
+function Settings.scanOnOpen() return Settings.get("scan_on_open") end
+function Settings.autoUpdateCheck() return Settings.get("update_auto_check") end
+function Settings.updateChannel() return Settings.get("update_channel") end
 function Settings.language() return Settings.get("language") end
 
 return Settings

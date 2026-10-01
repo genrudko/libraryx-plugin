@@ -35,7 +35,19 @@ LibraryX — индексированный библиотечный интер�
   - заголовок: `80–130%`;
   - обложка: `60–110%`;
   - показ жанров, метаданных и пути к файлу;
+- **Навигация**:
+  - показывать/скрывать А–Я / A–Z;
+- **Сканирование и индекс**:
+  - сканировать библиотеку при открытии;
+  - быстрое сканирование;
+  - полное пересканирование;
+- **Обновления**:
+  - ручная проверка GitHub Releases;
+  - канал Beta / Stable;
+  - уведомлять о новой версии в фоне;
+  - установка готового release ZIP с подтверждением и предложением перезапустить KOReader;
 - **Язык интерфейса**: как в KOReader / Русский / English;
+- **О программе**: установленная версия и GitHub;
 - сброс настроек LibraryX по умолчанию.
 
 В режиме `Автоматически` количество карточек рассчитывается по реальной высоте экрана
@@ -145,7 +157,10 @@ LibraryX is an indexed library frontend for KOReader inspired by AlReaderX navig
 - navigation to every author of a book, its series and catalog
 - multi-label Favorites: **To read / Already read / Maybe later / Worth reading / Trash / Something unclear**
 - optional native **Start with LibraryX** integration
-- KOReader native top menu available directly from LibraryX via the standard tap/swipe gestures
+- KOReader native top menu available directly from LibraryX via the standard tap/swipe gestures;
+- dedicated **LibraryX** tab in KOReader's top menu;
+- icons on the LibraryX home screen and settings sections;
+- built-in GitHub Releases updater with stable/beta channels, background notifications and confirmed ZIP installation
 - English and Russian UI, either following KOReader or explicitly selected
 
 ### Settings
@@ -161,7 +176,19 @@ Open **LibraryX → Settings**.
   - title: `80–130%`;
   - cover: `60–110%`;
   - toggles for genres, metadata and file path;
+- **Navigation**:
+  - show/hide A–Z / А–Я;
+- **Scanning and index**:
+  - scan when LibraryX opens;
+  - normal scan;
+  - full rescan;
+- **Updates**:
+  - manual GitHub Releases check;
+  - Beta / Stable channel;
+  - background update notifications;
+  - install the ready-made release ZIP after confirmation and offer to restart KOReader;
 - **Interface language**: follow KOReader / Russian / English;
+- **About**: installed version and GitHub repository;
 - reset LibraryX settings to defaults.
 
 `Automatic` density derives the row count from the real viewport and clamps it to

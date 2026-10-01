@@ -16,6 +16,7 @@ local Debug = require("libraryxdebug")
 local L = require("libraryxi18n").t
 local Settings = require("libraryxsettings")
 local SettingsUI = require("libraryxsettingsui")
+local Icons = require("libraryxmenuicons")
 
 local LibraryUI = {}
 LibraryUI.__index = LibraryUI
@@ -664,7 +665,8 @@ function LibraryUI:_showBooks(title, books, opts)
                 reload = reload,
             })
         end,
-        onAlphabetTap = (mode == SORT_TITLE or mode == SORT_AUTHOR or mode == SORT_SERIES)
+        onAlphabetTap = Settings.showAlphabet()
+            and (mode == SORT_TITLE or mode == SORT_AUTHOR or mode == SORT_SERIES)
             and function()
                 self:showAlphabet(menu, books, mode)
             end or nil,
@@ -809,7 +811,8 @@ function LibraryUI:showSeriesBooks(title, books, sort_mode, reverse)
         onSortTap = function()
             self:showSeriesSortDialog(menu, title, books, mode, reverse)
         end,
-        onAlphabetTap = (mode == SORT_TITLE or mode == SORT_AUTHOR)
+        onAlphabetTap = Settings.showAlphabet()
+            and (mode == SORT_TITLE or mode == SORT_AUTHOR)
             and function()
                 self:showAlphabet(menu, books, mode)
             end or nil,
@@ -962,7 +965,8 @@ function LibraryUI:showCatalogList(opts)
         show_more = opts.show_more ~= false,
         footer_label = opts.footer_label or
             (opts.fixed_order and "" or L("alphabetical_short")),
-        onAlphabetTap = opts.alphabet_enabled ~= false and not opts.fixed_order
+        onAlphabetTap = Settings.showAlphabet()
+            and opts.alphabet_enabled ~= false and not opts.fixed_order
             and function()
                 self:showCatalogAlphabet(menu, rows)
             end or nil,
@@ -1466,44 +1470,53 @@ function LibraryUI:showRoot()
 
     local rows = {
         {
+            icon = Icons.BOOK,
             name = L("all_books"),
             mandatory_func = function() return tostring(self.repo:countBooks()) end,
             callback = function() self:showAllBooks() end,
         },
         {
+            icon = Icons.USERS,
             name = L("authors"),
             mandatory_func = function() return tostring(self.repo:countAuthors()) end,
             callback = function() self:showAuthors() end,
         },
         {
+            icon = Icons.SERIES,
             name = L("series"),
             mandatory_func = function() return tostring(self.repo:countSeries()) end,
             callback = function() self:showSeries() end,
         },
         {
+            icon = Icons.TITLES,
             name = L("titles"),
             mandatory_func = function() return tostring(self.repo:countBooks()) end,
             callback = function() self:showTitles() end,
         },
         {
+            icon = Icons.FOLDER,
             name = L("folders"),
             callback = function() self:showFolders() end,
         },
         {
+            icon = Icons.RANDOM,
             name = L("random_book"),
             callback = function() self:openRandomBook() end,
         },
         {
+            icon = Icons.FILTER,
             name = L("data_filters"),
             callback = function() self:showDataFilters() end,
         },
         {
+            icon = Icons.SETTINGS,
             name = L("settings"),
             callback = function()
-                SettingsUI.show(self.plugin.ui and self.plugin.ui.menu)
+                SettingsUI.show(self.plugin.ui and self.plugin.ui.menu, self.plugin)
             end,
         },
         {
+            icon = Icons.REFRESH,
             name = L("scan_library"),
             callback = function() self.plugin:scanLibrary(false) end,
         },
@@ -1513,7 +1526,7 @@ function LibraryUI:showRoot()
     local items = {}
     for _, row in ipairs(rows) do
         items[#items + 1] = {
-            text = row.name,
+            text = Icons.label(row.icon, row.name),
             mandatory_func = row.mandatory_func,
             callback = row.callback,
         }

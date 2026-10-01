@@ -6,9 +6,17 @@ local Screen = require("device").screen
 local TouchMenu = require("ui/widget/touchmenu")
 local Settings = require("libraryxsettings")
 local L = require("libraryxi18n").t
+local Icons = require("libraryxmenuicons")
+local Updater = require("libraryxupdater")
 local KOReaderMenu = require("libraryxkoreadermenu")
 
-local SettingsUI = {}
+local SettingsUI = {
+    _plugin = nil,
+}
+
+function SettingsUI.bind(plugin)
+    SettingsUI._plugin = plugin
+end
 
 local function refresh(touchmenu_instance)
     if touchmenu_instance and touchmenu_instance.updateItems then
@@ -111,12 +119,121 @@ local function languageItems()
     return items
 end
 
+local function channelItems()
+    return {
+        {
+            text = L("update_channel_beta"),
+            radio = true,
+            checked_func = function() return Settings.updateChannel() == "beta" end,
+            keep_menu_open = true,
+            callback = function(touchmenu_instance)
+                Settings.set("update_channel", "beta")
+                refresh(touchmenu_instance)
+            end,
+        },
+        {
+            text = L("update_channel_stable"),
+            radio = true,
+            checked_func = function() return Settings.updateChannel() == "stable" end,
+            keep_menu_open = true,
+            callback = function(touchmenu_instance)
+                Settings.set("update_channel", "stable")
+                refresh(touchmenu_instance)
+            end,
+        },
+    }
+end
+
+function SettingsUI.updatesMenu()
+    return {
+        {
+            text_func = function()
+                local current = Updater.getInstalledVersion()
+                local available = Updater.getAvailableUpdate()
+                if available then
+                    return string.format(L("updates_available_short"), available)
+                end
+                return string.format(L("check_for_updates"), current)
+            end,
+            keep_menu_open = true,
+            callback = function() Updater.check() end,
+        },
+        toggleItem("update_auto_check", "update_auto_check"),
+        {
+            text_func = function()
+                local channel = Settings.updateChannel() == "stable"
+                    and L("update_channel_stable")
+                    or L("update_channel_beta")
+                return L("update_channel") .. ": " .. channel
+            end,
+            sub_item_table = channelItems(),
+        },
+        {
+            text = L("open_releases_page"),
+            keep_menu_open = true,
+            callback = function() Updater.openReleasesPage() end,
+        },
+    }
+end
+
+function SettingsUI.showAbout()
+    UIManager:show(InfoMessage:new{
+        text = string.format(
+            "%s\n\n%s: %s\n%s\n%s",
+            L("libraryx"),
+            L("installed_version"), Updater.getInstalledVersion(),
+            L("about_libraryx_text"),
+            "https://github.com/genrudko/libraryx-plugin"),
+    })
+end
+
+local function libraryItems()
+    return {
+        {
+            text_func = function()
+                local plugin = SettingsUI._plugin
+                local root = plugin and plugin:getLibraryRoot()
+                return root and (L("library_folder") .. ": " .. root)
+                    or L("choose_library_folder")
+            end,
+            callback = function()
+                local plugin = SettingsUI._plugin
+                if plugin then plugin:chooseLibraryRoot() end
+            end,
+        },
+    }
+end
+
+local function indexItems()
+    return {
+        toggleItem("scan_on_open", "scan_on_open"),
+        {
+            text = L("scan_now"),
+            callback = function()
+                local plugin = SettingsUI._plugin
+                if plugin then plugin:scanLibrary(false) end
+            end,
+        },
+        {
+            text = L("full_rescan"),
+            callback = function()
+                local plugin = SettingsUI._plugin
+                if plugin then plugin:scanLibrary(true) end
+            end,
+        },
+    }
+end
+
 function SettingsUI.menu()
     return {
-        text_func = function() return L("settings") end,
+        text_func = function() return Icons.label(Icons.SETTINGS, L("settings")) end,
         sub_item_table = {
             {
-                text_func = function() return L("settings_book_list") end,
+                text = Icons.label(Icons.LIBRARY, L("settings_library")),
+                sub_item_table = libraryItems(),
+            },
+            {
+                text = Icons.label(Icons.LIST, L("settings_book_list")),
                 sub_item_table = {
                     {
                         text_func = function()
@@ -136,7 +253,7 @@ function SettingsUI.menu()
                 },
             },
             {
-                text_func = function() return L("settings_book_details") end,
+                text = Icons.label(Icons.PREVIEW, L("settings_book_details")),
                 sub_item_table = {
                     percentItem("details_body_scale", "details_body_scale", 70, 130, 90),
                     percentItem("details_title_scale", "details_title_scale", 80, 130, 100),
@@ -147,18 +264,43 @@ function SettingsUI.menu()
                 },
             },
             {
+                text = Icons.label(Icons.NAVIGATION, L("settings_navigation")),
+                sub_item_table = {
+                    toggleItem("show_alphabet", "show_alphabet"),
+                },
+            },
+            {
+                text = Icons.label(Icons.DATABASE, L("settings_index")),
+                sub_item_table = indexItems(),
+            },
+            {
+                text_func = function()
+                    local available = Updater.getAvailableUpdate()
+                    local label = available
+                        and string.format(L("updates_available_short"), available)
+                        or L("settings_updates")
+                    return Icons.label(Icons.UPDATES, label)
+                end,
+                sub_item_table_func = SettingsUI.updatesMenu,
+            },
+            {
                 text_func = function()
                     local labels = {
                         system = L("language_system"),
                         ru = L("language_russian"),
                         en = L("language_english"),
                     }
-                    return L("settings_language") .. ": " .. labels[Settings.language()]
+                    return Icons.label(Icons.LANGUAGE,
+                        L("settings_language") .. ": " .. labels[Settings.language()])
                 end,
                 sub_item_table = languageItems(),
             },
             {
-                text_func = function() return L("reset_settings") end,
+                text = Icons.label(Icons.INFO, L("about")),
+                callback = SettingsUI.showAbout,
+            },
+            {
+                text = Icons.label(Icons.RESET, L("reset_settings")),
                 keep_menu_open = true,
                 callback = function(touchmenu_instance)
                     UIManager:show(ConfirmBox:new{
@@ -179,8 +321,8 @@ function SettingsUI.menu()
     }
 end
 
-
-function SettingsUI.show(filemanager_menu)
+function SettingsUI.show(filemanager_menu, plugin)
+    if plugin then SettingsUI.bind(plugin) end
     local root = SettingsUI.menu()
     local tab = { icon = "appbar.settings" }
     for _, item in ipairs(root.sub_item_table or {}) do

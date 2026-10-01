@@ -9,6 +9,9 @@ local Debug = require("libraryxdebug")
 local DebugUI = require("debugui")
 local L = require("libraryxi18n").t
 local SettingsUI = require("libraryxsettingsui")
+local Settings = require("libraryxsettings")
+local Updater = require("libraryxupdater")
+local Icons = require("libraryxmenuicons")
 
 local ROOT_KEY = "libraryx_library_root"
 local START_WITH_VALUE = "libraryx"
@@ -19,6 +22,42 @@ local LibraryX = WidgetContainer:extend{
     name = "libraryx",
     is_doc_only = false,
 }
+
+LibraryX.MENU_ORDER = {
+    "libraryx_open",
+    "libraryx_favorites",
+    "libraryx_folder",
+    "libraryx_scan",
+    "libraryx_settings",
+    "libraryx_updates",
+    "libraryx_about",
+    "libraryx_debug",
+}
+
+function LibraryX:_extendMenuOrder()
+    local ok, order = pcall(require, "ui/elements/filemanager_menu_order")
+    if not ok or type(order) ~= "table"
+            or type(order["KOMenu:menu_buttons"]) ~= "table" then
+        return
+    end
+    local buttons = order["KOMenu:menu_buttons"]
+    for _, id in ipairs(buttons) do
+        if id == "libraryx_tab" then
+            order.libraryx_tab = LibraryX.MENU_ORDER
+            return
+        end
+    end
+
+    local insert_at = 2
+    for i, id in ipairs(buttons) do
+        if id == "bookshelf_tab" then
+            insert_at = i + 1
+            break
+        end
+    end
+    table.insert(buttons, insert_at, "libraryx_tab")
+    order.libraryx_tab = LibraryX.MENU_ORDER
+end
 
 function LibraryX:registerStartWith()
     local ok, FMMenu = pcall(require, "apps/filemanager/filemanagermenu")
@@ -72,9 +111,16 @@ end
 
 function LibraryX:init()
     Debug.log("plugin init")
+    SettingsUI.bind(self)
     if not self.ui.document and self.ui.menu then
+        self:_extendMenuOrder()
         self:registerStartWith()
         self.ui.menu:registerToMainMenu(self)
+        UIManager:scheduleIn(2, function()
+            if self.ui and not self.ui.document then
+                Updater.checkBackground()
+            end
+        end)
         if G_reader_settings:readSetting("start_with") == START_WITH_VALUE
                 and not initial_takeover_done then
             initial_takeover_done = true
@@ -94,6 +140,18 @@ function LibraryX:onShow()
     if expect_initial_takeover then
         expect_initial_takeover = false
         self:openLibrary()
+    end
+end
+
+function LibraryX:onResume()
+    if self.ui and not self.ui.document then
+        Updater.checkBackground()
+    end
+end
+
+function LibraryX:onNetworkConnected()
+    if self.ui and not self.ui.document then
+        Updater.checkBackground()
     end
 end
 
@@ -252,8 +310,16 @@ function LibraryX:scanLibrary(force_reindex)
 end
 
 function LibraryX:openLibrary()
+    SettingsUI.bind(self)
     local ui = LibraryUI.new(self)
     ui:showRoot()
+    if Settings.scanOnOpen() then
+        UIManager:scheduleIn(0.2, function()
+            if self.ui and not self.ui.document then
+                self:scanLibrary(false)
+            end
+        end)
+    end
 end
 
 function LibraryX:showDebugMenu()
@@ -304,39 +370,61 @@ function LibraryX:showDebugMenu()
 end
 
 function LibraryX:addToMainMenu(menu_items)
-    menu_items.libraryx = {
+    SettingsUI.bind(self)
+
+    menu_items.libraryx_tab = {
+        icon = "book.opened",
         text = L("libraryx"),
-        sorting_hint = "tools",
-        sub_item_table = {
-            {
-                text = L("open_libraryx"),
-                callback = function() self:openLibrary() end,
-            },
-            {
-                text = L("favorites"),
-                callback = function()
-                    local ui = LibraryUI.new(self)
-                    ui:showFavorites("to_read")
-                end,
-            },
-            {
-                text = L("update_library"),
-                callback = function() self:scanLibrary(false) end,
-            },
-            {
-                text_func = function()
-                    local root = self:getLibraryRoot()
-                    return root and (L("library_folder") .. ": " .. root)
-                        or L("choose_library_folder")
-                end,
-                callback = function() self:chooseLibraryRoot() end,
-            },
-            SettingsUI.menu(),
-            {
-                text = L("debug"),
-                callback = function() self:showDebugMenu() end,
-            },
-        },
+    }
+    menu_items.libraryx_open = {
+        text = Icons.label(Icons.BOOK, L("open_libraryx")),
+        callback = function() self:openLibrary() end,
+    }
+    menu_items.libraryx_favorites = {
+        text = Icons.label(Icons.STAR, L("favorites")),
+        callback = function()
+            local ui = LibraryUI.new(self)
+            ui:showFavorites("to_read")
+        end,
+    }
+    menu_items.libraryx_folder = {
+        text_func = function()
+            local root = self:getLibraryRoot()
+            return Icons.label(Icons.FOLDER,
+                root and (L("library_folder") .. ": " .. root)
+                or L("choose_library_folder"))
+        end,
+        callback = function() self:chooseLibraryRoot() end,
+    }
+    menu_items.libraryx_scan = {
+        text = Icons.label(Icons.REFRESH, L("update_library")),
+        callback = function() self:scanLibrary(false) end,
+        separator = true,
+    }
+    menu_items.libraryx_settings = {
+        text = Icons.label(Icons.SETTINGS, L("settings")),
+        sub_item_table_func = function()
+            return SettingsUI.menu().sub_item_table
+        end,
+        separator = true,
+    }
+    menu_items.libraryx_updates = {
+        text_func = function()
+            local available = Updater.getAvailableUpdate()
+            local label = available
+                and string.format(L("updates_available_short"), available)
+                or L("settings_updates")
+            return Icons.label(Icons.UPDATES, label)
+        end,
+        sub_item_table_func = SettingsUI.updatesMenu,
+    }
+    menu_items.libraryx_about = {
+        text = Icons.label(Icons.INFO, L("about")),
+        callback = SettingsUI.showAbout,
+    }
+    menu_items.libraryx_debug = {
+        text = L("debug"),
+        callback = function() self:showDebugMenu() end,
     }
 end
 

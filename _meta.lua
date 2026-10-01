@@ -14,6 +14,8 @@ else
 end
 
 return {
+    name = "libraryx",
     fullname = "LibraryX",
+    version = "0.4.0-beta",
     description = description,
 }

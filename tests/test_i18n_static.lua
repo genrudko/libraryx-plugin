@@ -21,7 +21,7 @@ for key in pairs(ru_keys) do assert(en_keys[key],"missing English key: "..key) e
 
 for _,path in ipairs({
     "main.lua","libraryui.lua","alreaderbooklist.lua","alreadercatalogmenu.lua",
-    "libraryxbookdetails.lua","libraryxsettingsui.lua","debugui.lua",
+    "libraryxbookdetails.lua","libraryxsettingsui.lua","libraryxupdater.lua","debugui.lua",
 }) do
     local source=slurp(path)
     for key in source:gmatch('L%("([^"]+)"%)') do
