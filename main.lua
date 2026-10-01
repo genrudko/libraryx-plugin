@@ -69,7 +69,10 @@ function LibraryX:_extendReaderMenuOrder()
 
     local buttons = order["KOMenu:menu_buttons"]
     for _, id in ipairs(buttons) do
-        if id == "libraryx_reader" then return end
+        if id == "libraryx_reader" then
+            order.libraryx_reader = order.libraryx_reader or {}
+            return
+        end
     end
 
     local insert_at = #buttons + 1
@@ -80,6 +83,11 @@ function LibraryX:_extendReaderMenuOrder()
         end
     end
     table.insert(buttons, insert_at, "libraryx_reader")
+    -- Top-level ReaderMenu buttons are represented as submenus, even when the
+    -- tab itself is callback-driven (see reader_menu_order.filemanager = {}).
+    -- Without this empty order table MenuSorter treats libraryx_reader as a
+    -- regular action, then drops it during top-level cleanup.
+    order.libraryx_reader = {}
 end
 
 function LibraryX:registerStartWith()

@@ -12,6 +12,8 @@ assert(main:find('function LibraryX:_extendReaderMenuOrder()', 1, true))
 assert(main:find('require, "ui/elements/reader_menu_order"', 1, true))
 assert(main:find('if id == "filemanager" then', 1, true))
 assert(main:find('table.insert(buttons, insert_at, "libraryx_reader")', 1, true))
+assert(main:find('order.libraryx_reader = {}', 1, true),
+    'Reader top-level button requires an empty order table like filemanager = {}')
 
 assert(main:find('if self.ui.document then', 1, true))
 assert(main:find('self:_extendReaderMenuOrder()', 1, true))
