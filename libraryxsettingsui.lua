@@ -2,6 +2,8 @@ local ConfirmBox = require("ui/widget/confirmbox")
 local InfoMessage = require("ui/widget/infomessage")
 local SpinWidget = require("ui/widget/spinwidget")
 local UIManager = require("ui/uimanager")
+local Screen = require("device").screen
+local TouchMenu = require("ui/widget/touchmenu")
 local Settings = require("libraryxsettings")
 local L = require("libraryxi18n").t
 
@@ -174,6 +176,23 @@ function SettingsUI.menu()
             },
         },
     }
+end
+
+
+function SettingsUI.show()
+    local root = SettingsUI.menu()
+    local tab = { icon = "appbar.settings" }
+    for _, item in ipairs(root.sub_item_table or {}) do
+        tab[#tab + 1] = item
+    end
+
+    local menu = TouchMenu:new{
+        title = L("settings"),
+        width = Screen:getWidth(),
+        tab_item_table = { tab },
+    }
+    UIManager:show(menu)
+    return menu
 end
 
 return SettingsUI

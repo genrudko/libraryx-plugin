@@ -15,6 +15,7 @@ local AlReaderCatalogMenu = require("alreadercatalogmenu")
 local Debug = require("libraryxdebug")
 local L = require("libraryxi18n").t
 local Settings = require("libraryxsettings")
+local SettingsUI = require("libraryxsettingsui")
 
 local LibraryUI = {}
 LibraryUI.__index = LibraryUI
@@ -1491,6 +1492,10 @@ function LibraryUI:showRoot()
         {
             name = L("data_filters"),
             callback = function() self:showDataFilters() end,
+        },
+        {
+            name = L("settings"),
+            callback = function() SettingsUI.show() end,
         },
         {
             name = L("scan_library"),
