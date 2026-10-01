@@ -30,7 +30,7 @@ for _, needle in ipairs({
     'kind = "series"',
     'kind = "folders"',
     'title = L("library")',
-    'show_back = false',
+    'show_back = self.plugin.ui and self.plugin.ui.document ~= nil',
     'show_more = false',
     'self:showBookDetails(book)',
 }) do

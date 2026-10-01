@@ -1543,7 +1543,10 @@ function LibraryUI:showRoot()
         libraryx_filemanager_menu = self.plugin.ui and self.plugin.ui.menu,
         libraryx_top_inset = Screen:scaleBySize(24),
         enable_search = false,
-        show_back = false,
+        -- When LibraryX is opened from ReaderUI, the current book remains
+        -- underneath. A back affordance closes only the library root and
+        -- returns directly to the same reading session.
+        show_back = self.plugin.ui and self.plugin.ui.document ~= nil,
         show_more = false,
         footer_label = "",
     }

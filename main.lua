@@ -60,6 +60,28 @@ function LibraryX:_extendMenuOrder()
     order.libraryx_tab = LibraryX.MENU_ORDER
 end
 
+function LibraryX:_extendReaderMenuOrder()
+    local ok, order = pcall(require, "ui/elements/reader_menu_order")
+    if not ok or type(order) ~= "table"
+            or type(order["KOMenu:menu_buttons"]) ~= "table" then
+        return
+    end
+
+    local buttons = order["KOMenu:menu_buttons"]
+    for _, id in ipairs(buttons) do
+        if id == "libraryx_reader" then return end
+    end
+
+    local insert_at = #buttons + 1
+    for i, id in ipairs(buttons) do
+        if id == "filemanager" then
+            insert_at = i + 1
+            break
+        end
+    end
+    table.insert(buttons, insert_at, "libraryx_reader")
+end
+
 function LibraryX:registerStartWith()
     local ok, FMMenu = pcall(require, "apps/filemanager/filemanagermenu")
     if not ok or not FMMenu or type(FMMenu.getStartWithMenuTable) ~= "function" then
@@ -113,26 +135,33 @@ end
 function LibraryX:init()
     Debug.log("plugin init")
     SettingsUI.bind(self)
-    if not self.ui.document and self.ui.menu then
-        self:_extendMenuOrder()
-        self:registerStartWith()
+
+    if not (self.ui and self.ui.menu) then return end
+
+    if self.ui.document then
+        self:_extendReaderMenuOrder()
         self.ui.menu:registerToMainMenu(self)
-        UIManager:scheduleIn(2, function()
-            if self.ui and not self.ui.document then
-                Updater.checkBackground()
+        return
+    end
+
+    self:_extendMenuOrder()
+    self:registerStartWith()
+    self.ui.menu:registerToMainMenu(self)
+    UIManager:scheduleIn(2, function()
+        if self.ui and not self.ui.document then
+            Updater.checkBackground()
+        end
+    end)
+    if G_reader_settings:readSetting("start_with") == START_WITH_VALUE
+            and not initial_takeover_done then
+        initial_takeover_done = true
+        expect_initial_takeover = true
+        UIManager:nextTick(function()
+            if expect_initial_takeover and self.ui and not self.ui.document then
+                expect_initial_takeover = false
+                self:openLibrary()
             end
         end)
-        if G_reader_settings:readSetting("start_with") == START_WITH_VALUE
-                and not initial_takeover_done then
-            initial_takeover_done = true
-            expect_initial_takeover = true
-            UIManager:nextTick(function()
-                if expect_initial_takeover and self.ui and not self.ui.document then
-                    expect_initial_takeover = false
-                    self:openLibrary()
-                end
-            end)
-        end
     end
 end
 
@@ -414,6 +443,25 @@ end
 
 function LibraryX:addToMainMenu(menu_items)
     SettingsUI.bind(self)
+
+    if self.ui and self.ui.document then
+        menu_items.libraryx_reader = {
+            icon = "book.opened",
+            text = L("open_libraryx"),
+            remember = false,
+            callback = function()
+                if self.ui and self.ui.menu and self.ui.menu.onTapCloseMenu then
+                    self.ui.menu:onTapCloseMenu()
+                end
+                UIManager:nextTick(function()
+                    if self.ui and self.ui.document then
+                        self:openLibrary()
+                    end
+                end)
+            end,
+        }
+        return
+    end
 
     menu_items.libraryx_tab = {
         icon = "book.opened",
