@@ -23,8 +23,10 @@ local p_updates = assert(settings:find('Icons.UPDATES',p_library + 1,true))
 local p_list = assert(settings:find('Icons.LIST',p_updates + 1,true))
 assert(p_library < p_updates and p_updates < p_list,
     'Updates must be visible on the first Settings page immediately after Library')
-assert(main:find('sorting_hint = "libraryx_tab"',1,true),
-    'native Updates item needs LibraryX-tab orphan fallback')
+assert(main:find('"libraryx_updates"',1,true),
+    'Updates must remain in the shared LibraryX.MENU_ORDER')
+assert(main:find('order.libraryx_reader = LibraryX.MENU_ORDER',1,true),
+    'Reader and FileManager must share the same LibraryX menu structure')
 assert(settings:find('update_auto_check',1,true), 'auto update check setting missing')
 assert(settings:find('update_channel',1,true), 'update channel setting missing')
 assert(model:find('scan_on_open',1,true), 'scan-on-open setting missing')
@@ -32,5 +34,5 @@ assert(model:find('show_alphabet',1,true), 'alphabet visibility setting missing'
 assert(model:find('update_auto_check',1,true), 'auto update model setting missing')
 assert(model:find('update_channel',1,true), 'update channel model setting missing')
 assert(icons:find('function M.label',1,true), 'menu icon label helper missing')
-assert(meta:find('version = "0.4.6-beta"',1,true), 'release version missing from metadata')
+assert(meta:find('version = "0.4.7-beta"',1,true), 'release version missing from metadata')
 print('test_settings_v2_static: PASS')

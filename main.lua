@@ -26,6 +26,7 @@ local LibraryX = WidgetContainer:extend{
 
 LibraryX.MENU_ORDER = {
     "libraryx_open",
+    "libraryx_last_book",
     "libraryx_favorites",
     "libraryx_folder",
     "libraryx_scan",
@@ -70,7 +71,7 @@ function LibraryX:_extendReaderMenuOrder()
     local buttons = order["KOMenu:menu_buttons"]
     for _, id in ipairs(buttons) do
         if id == "libraryx_reader" then
-            order.libraryx_reader = order.libraryx_reader or {}
+            order.libraryx_reader = LibraryX.MENU_ORDER
             return
         end
     end
@@ -83,11 +84,10 @@ function LibraryX:_extendReaderMenuOrder()
         end
     end
     table.insert(buttons, insert_at, "libraryx_reader")
-    -- Top-level ReaderMenu buttons are represented as submenus, even when the
-    -- tab itself is callback-driven (see reader_menu_order.filemanager = {}).
-    -- Without this empty order table MenuSorter treats libraryx_reader as a
-    -- regular action, then drops it during top-level cleanup.
-    order.libraryx_reader = {}
+    -- ReaderMenu top-level entries are submenus in MenuSorter. Point the
+    -- Reader tab at the exact same LibraryX menu order as FileManager so both
+    -- contexts stay in lockstep.
+    order.libraryx_reader = LibraryX.MENU_ORDER
 end
 
 function LibraryX:registerStartWith()
@@ -407,6 +407,53 @@ function LibraryX:openLibrary()
     end
 end
 
+function LibraryX:getLastBookPath()
+    local path = G_reader_settings:readSetting("lastfile")
+    if type(path) ~= "string" or path == "" then return nil end
+    local lfs = require("libs/libkoreader-lfs")
+    if lfs.attributes(path, "mode") ~= "file" then return nil end
+    return path
+end
+
+function LibraryX:openLastBook(from_menu)
+    local path = self:getLastBookPath()
+    if not path then
+        UIManager:show(InfoMessage:new{
+            text = L("last_book_unavailable"),
+            timeout = 3,
+        })
+        return false
+    end
+
+    -- When LibraryX is already over the same ReaderUI document, this action is
+    -- simply a fast "return to book" command; don't re-open the document.
+    if self.ui and self.ui.document and self.ui.document.file == path then
+        if from_menu then
+            UIManager:close(from_menu)
+            if self.library_menu == from_menu then self.library_menu = nil end
+        end
+        return true
+    end
+
+    Lifecycle.markReaderLaunch()
+    UIManager:nextTick(function()
+        require("apps/reader/readerui"):showReader(path)
+    end)
+    return true
+end
+
+function LibraryX:_openLibraryFromHostMenu()
+    if self.ui and self.ui.document and self.ui.menu
+            and self.ui.menu.onTapCloseMenu then
+        self.ui.menu:onTapCloseMenu()
+        UIManager:nextTick(function()
+            if self.ui and self.ui.document then self:openLibrary() end
+        end)
+        return
+    end
+    self:openLibrary()
+end
+
 function LibraryX:showDebugMenu()
     local ButtonDialog = require("ui/widget/buttondialog")
     local dialog
@@ -457,32 +504,30 @@ end
 function LibraryX:addToMainMenu(menu_items)
     SettingsUI.bind(self)
 
-    if self.ui and self.ui.document then
-        menu_items.libraryx_reader = {
-            icon = "book.opened",
-            text = L("open_libraryx"),
-            remember = false,
-            callback = function()
-                if self.ui and self.ui.menu and self.ui.menu.onTapCloseMenu then
-                    self.ui.menu:onTapCloseMenu()
-                end
-                UIManager:nextTick(function()
-                    if self.ui and self.ui.document then
-                        self:openLibrary()
-                    end
-                end)
-            end,
-        }
-        return
-    end
+    local in_reader = self.ui and self.ui.document ~= nil
+    local parent_id = in_reader and "libraryx_reader" or "libraryx_tab"
 
-    menu_items.libraryx_tab = {
+    menu_items[parent_id] = {
         icon = "book.opened",
         text = L("libraryx"),
     }
+
+    -- Keep ReaderUI and FileManager LibraryX tabs on one implementation.
+    -- Their order tables both point at LibraryX.MENU_ORDER.
     menu_items.libraryx_open = {
         text = Icons.label(Icons.BOOK, L("open_libraryx")),
-        callback = function() self:openLibrary() end,
+        callback = function() self:_openLibraryFromHostMenu() end,
+    }
+    menu_items.libraryx_last_book = {
+        text = Icons.label(Icons.BOOK, L("open_last_book")),
+        enabled_func = function() return self:getLastBookPath() ~= nil end,
+        callback = function()
+            if in_reader and self.ui and self.ui.menu
+                    and self.ui.menu.onTapCloseMenu then
+                self.ui.menu:onTapCloseMenu()
+            end
+            self:openLastBook()
+        end,
     }
     menu_items.libraryx_favorites = {
         text = Icons.label(Icons.STAR, L("favorites")),
@@ -513,7 +558,6 @@ function LibraryX:addToMainMenu(menu_items)
         separator = true,
     }
     menu_items.libraryx_updates = {
-        sorting_hint = "libraryx_tab",
         text_func = function()
             local available = Updater.getAvailableUpdate()
             local label = available

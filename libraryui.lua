@@ -1476,6 +1476,13 @@ function LibraryUI:showRoot()
     local rows = {
         {
             icon = Icons.BOOK,
+            name = L("open_last_book"),
+            callback = function()
+                self.plugin:openLastBook(self.plugin.library_menu)
+            end,
+        },
+        {
+            icon = Icons.BOOK,
             name = L("all_books"),
             mandatory_func = function() return tostring(self.repo:countBooks()) end,
             callback = function() self:showAllBooks() end,

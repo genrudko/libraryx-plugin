@@ -31,7 +31,7 @@ function fake_ffi_util.purgeDir(path)
     return ok, ok and nil or "rm failed"
 end
 
-local archive_version = "0.4.6-beta"
+local archive_version = "0.4.7-beta"
 local Reader = {}
 Reader.__index = Reader
 function Reader:new() return setmetatable({}, self) end
@@ -124,7 +124,7 @@ end
 -- Successful install replaces the complete directory, so removed old files
 -- cannot linger after an update.
 writeOld()
-local ok, err = U._installStaged("fake.zip", final_dir, "0.4.6-beta")
+local ok, err = U._installStaged("fake.zip", final_dir, "0.4.7-beta")
 assert(ok, tostring(err))
 assert(pathMode(final_dir .. "/new.lua") == "file")
 assert(pathMode(final_dir .. "/old.lua") == nil)
@@ -134,11 +134,11 @@ assert(pathMode(final_dir .. ".libraryx-backup") == nil)
 -- A mismatched release asset is rejected before the live plugin is renamed.
 writeOld()
 archive_version = "9.9.9-beta"
-ok, err = U._installStaged("fake.zip", final_dir, "0.4.6-beta")
+ok, err = U._installStaged("fake.zip", final_dir, "0.4.7-beta")
 assert(not ok and tostring(err):find("version mismatch", 1, true))
 assert(pathMode(final_dir .. "/old.lua") == "file")
 assert(pathMode(final_dir .. ".libraryx-backup") == nil)
-archive_version = "0.4.6-beta"
+archive_version = "0.4.7-beta"
 
 -- If activation of the staged directory fails after the backup rename, the
 -- previous plugin directory is restored.
@@ -150,7 +150,7 @@ os.rename = function(src, dst)
     end
     return real_rename(src, dst)
 end
-ok, err = U._installStaged("fake.zip", final_dir, "0.4.6-beta")
+ok, err = U._installStaged("fake.zip", final_dir, "0.4.7-beta")
 os.rename = real_rename
 assert(not ok and tostring(err):find("forced activation failure", 1, true))
 assert(pathMode(final_dir .. "/old.lua") == "file")
