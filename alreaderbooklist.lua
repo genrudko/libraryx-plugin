@@ -12,23 +12,19 @@ local util = require("util")
 local SafeCardBridge = require("safecardbridge")
 local Debug = require("libraryxdebug")
 local L = require("libraryxi18n").t
+local Settings = require("libraryxsettings")
 
-local CARDS_PER_PAGE_KEY = "libraryx_cards_per_page"
-local DEFAULT_CARDS_PER_PAGE = 4
 local MIN_CARDS_PER_PAGE = 3
 local MAX_CARDS_PER_PAGE = 10
 
 local function cardsPerPage()
-    local value = tonumber(G_reader_settings:readSetting(CARDS_PER_PAGE_KEY))
-        or DEFAULT_CARDS_PER_PAGE
-    return math.max(MIN_CARDS_PER_PAGE, math.min(MAX_CARDS_PER_PAGE, value))
+    return Settings.listDensity()
 end
 
 local AlReaderBookList = BookList:extend{
     name = "libraryx_books",
     covers_fullscreen = true,
     is_borderless = true,
-    files_per_page = 4,
 }
 
 local function closeWidget(widget)
@@ -57,6 +53,7 @@ end
 
 function AlReaderBookList:init()
     Debug.log("booklist init begin", self.title or "", "items=" .. tostring(#(self.item_table or {})))
+    self.libraryx_density_auto = Settings.isAutoDensity()
     self.libraryx_target_rows = tonumber(self.libraryx_files_per_page) or cardsPerPage()
     self.files_per_page = self.libraryx_target_rows
     self.full_item_table = self.item_table or {}
@@ -115,17 +112,16 @@ end
 
 function AlReaderBookList:showFooterMenu()
     local dialog
-    local current = tonumber(G_reader_settings:readSetting(CARDS_PER_PAGE_KEY))
-        or tonumber(self.files_per_page)
-        or DEFAULT_CARDS_PER_PAGE
+    local current = Settings.get("list_density")
 
-    local function choose(count)
-        G_reader_settings:saveSetting(CARDS_PER_PAGE_KEY, count)
-        self.libraryx_target_rows = count
-        self.files_per_page = count
-        self.libraryx_files_per_page = count
+    local function choose(value)
+        Settings.set("list_density", value)
+        self.libraryx_density_auto = value == "auto"
+        self.libraryx_target_rows = value == "auto" and nil or value
+        self.files_per_page = self.libraryx_target_rows
+        self.libraryx_files_per_page = self.libraryx_target_rows
         if dialog then UIManager:close(dialog) end
-        Debug.log("footer scale selected", tostring(count), self.title or "")
+        Debug.log("footer scale selected", tostring(value), self.title or "")
         self:updateItems(1)
     end
 
@@ -137,9 +133,15 @@ function AlReaderBookList:showFooterMenu()
         }
     end
 
+    local auto = {
+        text = L("density_auto") .. (current == "auto" and " ✓" or ""),
+        callback = function() choose("auto") end,
+    }
+
     dialog = ButtonDialog:new{
         title = L("list_settings"),
         buttons = {
+            { auto },
             { option(3), option(4) },
             { option(5), option(6) },
             { option(7), option(8) },

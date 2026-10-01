@@ -13,14 +13,33 @@ LibraryX — индексированный библиотечный интер�
 - фильтры по языку, жанрам, датам, новизне файлов и формату
 - случайная книга
 - реальные обложки и карточки с автором, языком, серией и жанрами
-- адаптивная плотность списка **3–10 книг на экран**
+- адаптивная плотность списка: **Авто** или **3–10 книг на экран**
 - неполная последняя страница растягивает карточки на доступную высоту
 - отдельный экран информации о книге перед открытием ReaderUI
 - long-press: **Читать / Удалить / Перейти / Избранное**
 - переход ко всем авторам книги, серии и каталогу
 - многометочное избранное: **К прочтению / Уже прочитано / Может быть позже / Стоящая книга / Мусор / Что-то непонятное**
 - запуск KOReader сразу в LibraryX через штатное **Start with / Запускать с**
-- русский и английский интерфейс; язык следует настройке KOReader
+- русский и английский интерфейс; язык может следовать KOReader или задаваться отдельно
+
+## Настройки
+
+В меню **LibraryX → Настройки** доступны:
+
+- **Список книг**:
+  - плотность: `Автоматически` или `3–10`;
+  - размер шрифта списка: `80–120%`;
+  - жанры, язык, номер в серии, формат/размер файла — отдельными переключателями;
+- **Превью книги**:
+  - основной текст: `70–130%` (по умолчанию `90%`);
+  - заголовок: `80–130%`;
+  - обложка: `60–110%`;
+  - показ жанров, метаданных и пути к файлу;
+- **Язык интерфейса**: как в KOReader / Русский / English;
+- сброс настроек LibraryX по умолчанию.
+
+В режиме `Автоматически` количество карточек рассчитывается по реальной высоте экрана
+и ограничивается диапазоном 3–10. Ручное значение всегда имеет приоритет.
 
 ## Установка
 
@@ -119,14 +138,33 @@ LibraryX is an indexed library frontend for KOReader inspired by AlReaderX navig
 - filters by language, genres, dates, file novelty and format
 - random book
 - real covers and cards with author, language, series and genres
-- adaptive **3–10 books per screen** density
+- adaptive density: **Automatic** or **3–10 books per screen**
 - short final pages expand their rows to use the available viewport
 - dedicated book-details screen before opening KOReader ReaderUI
 - long-press actions: **Read / Delete / Go to / Favorites**
 - navigation to every author of a book, its series and catalog
 - multi-label Favorites: **To read / Already read / Maybe later / Worth reading / Trash / Something unclear**
 - optional native **Start with LibraryX** integration
-- English and Russian UI following the KOReader interface language
+- English and Russian UI, either following KOReader or explicitly selected
+
+### Settings
+
+Open **LibraryX → Settings**.
+
+- **Book list**:
+  - density: `Automatic` or `3–10`;
+  - list font size: `80–120%`;
+  - independent toggles for genres, language, series number and file format/size;
+- **Book preview**:
+  - body text: `70–130%` (default `90%`);
+  - title: `80–130%`;
+  - cover: `60–110%`;
+  - toggles for genres, metadata and file path;
+- **Interface language**: follow KOReader / Russian / English;
+- reset LibraryX settings to defaults.
+
+`Automatic` density derives the row count from the real viewport and clamps it to
+3–10. A manual value always overrides automatic density.
 
 ### Installation
 

@@ -1,6 +1,9 @@
-local lang = G_reader_settings
-    and G_reader_settings:readSetting("language")
-    or "en"
+local override = G_reader_settings
+    and G_reader_settings:readSetting("libraryx_language")
+    or "system"
+override = tostring(override or "system"):lower()
+local lang = override ~= "system" and override
+    or (G_reader_settings and G_reader_settings:readSetting("language") or "en")
 lang = tostring(lang or "en"):lower()
 
 local description

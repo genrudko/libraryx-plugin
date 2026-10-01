@@ -8,6 +8,7 @@ local Scanner = require("scanner")
 local Debug = require("libraryxdebug")
 local DebugUI = require("debugui")
 local L = require("libraryxi18n").t
+local SettingsUI = require("libraryxsettingsui")
 
 local ROOT_KEY = "libraryx_library_root"
 local START_WITH_VALUE = "libraryx"
@@ -304,7 +305,7 @@ end
 
 function LibraryX:addToMainMenu(menu_items)
     menu_items.libraryx = {
-        text = L("libraryx_debug"),
+        text = L("libraryx"),
         sorting_hint = "tools",
         sub_item_table = {
             {
@@ -330,6 +331,7 @@ function LibraryX:addToMainMenu(menu_items)
                 end,
                 callback = function() self:chooseLibraryRoot() end,
             },
+            SettingsUI.menu(),
             {
                 text = L("debug"),
                 callback = function() self:showDebugMenu() end,

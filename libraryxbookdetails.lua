@@ -15,12 +15,18 @@ local VerticalGroup = require("ui/widget/verticalgroup")
 local VerticalSpan = require("ui/widget/verticalspan")
 local util = require("util")
 local L = require("libraryxi18n").t
+local Settings = require("libraryxsettings")
 local Screen = Device.screen
 
 local BookDetails = InputContainer:extend{
     plugin = nil, ui = nil, book = nil, cover_image = nil,
     on_read = nil, on_favorites = nil,
 }
+
+local function scaledFace(name, base_size, percent)
+    local size = math.max(10, math.floor(base_size * percent / 100 + 0.5))
+    return Font:getFace(name, size)
+end
 
 local function textWidget(text, width, face, alignment, bold)
     return TextBoxWidget:new{
@@ -65,8 +71,9 @@ function BookDetails:init()
     local body = VerticalGroup:new{ align = "center" }
 
     if self.cover_image then
-        local max_cover_w = math.floor(content_w * 0.84)
-        local max_cover_h = math.floor(scroll_h * 0.70)
+        local cover_scale = Settings.detailsCoverScale() / 100
+        local max_cover_w = math.floor(content_w * 0.84 * cover_scale)
+        local max_cover_h = math.floor(scroll_h * 0.70 * cover_scale)
         local cover = ImageWidget:new{
             image = self.cover_image, image_disposable = true,
             scale_factor = 0, width = max_cover_w, height = max_cover_h,
@@ -78,45 +85,55 @@ function BookDetails:init()
         table.insert(body, VerticalSpan:new{ width = Screen:scaleBySize(18) })
     else
         table.insert(body, textWidget(L("no_cover"), content_w,
-            Font:getFace("smallinfofont"), "center"))
+            scaledFace("smallinfofont", 22, Settings.detailsBodyScale()), "center"))
         table.insert(body, VerticalSpan:new{ width = Screen:scaleBySize(14) })
     end
 
-    addText(body, self.book.title, content_w, Font:getFace("tfont"),
+    addText(body, self.book.title, content_w,
+        scaledFace("tfont", 26, Settings.detailsTitleScale()),
         "center", false, Screen:scaleBySize(8))
     local authors = self.book.authors and self.book.authors:gsub("\n", ", ") or ""
-    addText(body, authors, content_w, Font:getFace("infofont"),
+    addText(body, authors, content_w,
+        scaledFace("infofont", 24, Settings.detailsBodyScale()),
         "center", false, Screen:scaleBySize(12))
 
     local description = self.book.description
     if description and description ~= "" then
         addText(body, util.htmlToPlainTextIfHtml(description), content_w,
-            Font:getFace("infofont"), "left", false, Screen:scaleBySize(24))
+            scaledFace("infofont", 24, Settings.detailsBodyScale()),
+            "left", false, Screen:scaleBySize(24))
     end
 
     local meta = {}
-    if self.book.series and self.book.series ~= "" then
+    if Settings.detailsShowMetadata()
+            and self.book.series and self.book.series ~= "" then
         local series = self.book.series
         if self.book.series_index then
             series = series .. " • " .. tostring(self.book.series_index)
         end
         meta[#meta + 1] = '"' .. series .. '"'
     end
-    if self.book.genres and self.book.genres ~= "" then
+    if Settings.detailsShowGenres()
+            and self.book.genres and self.book.genres ~= "" then
         meta[#meta + 1] = self.book.genres:gsub("\n", ", ")
     end
-    local lang = self.book.language and self.book.language:upper() or ""
-    if lang ~= "" then meta[#meta + 1] = '"' .. lang .. '"' end
-    if self.book.filesize and self.book.filesize > 0 then
-        meta[#meta + 1] = util.getFriendlySize(self.book.filesize)
+    if Settings.detailsShowMetadata() then
+        local lang = self.book.language and self.book.language:upper() or ""
+        if lang ~= "" then meta[#meta + 1] = '"' .. lang .. '"' end
+        if self.book.filesize and self.book.filesize > 0 then
+            meta[#meta + 1] = util.getFriendlySize(self.book.filesize)
+        end
     end
     if #meta > 0 then
         addText(body, table.concat(meta, "\n"), content_w,
-            Font:getFace("smallinfofont"), "left", false, Screen:scaleBySize(24))
+            scaledFace("smallinfofont", 22, Settings.detailsBodyScale()),
+            "left", false, Screen:scaleBySize(24))
     end
-    if self.book.path and self.book.path ~= "" then
+    if Settings.detailsShowPath()
+            and self.book.path and self.book.path ~= "" then
         addText(body, self.book.path, content_w,
-            Font:getFace("x_smallinfofont"), "left", false, Screen:scaleBySize(24))
+            scaledFace("x_smallinfofont", 20, Settings.detailsBodyScale()),
+            "left", false, Screen:scaleBySize(24))
     end
 
     self.scroll_widget = ScrollableContainer:new{

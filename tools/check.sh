@@ -23,6 +23,8 @@ test -f safecardbridge.lua
 test -f debugui.lua
 test -f libraryxdebug.lua
 test -f libraryxi18n.lua
+test -f libraryxsettings.lua
+test -f libraryxsettingsui.lua
 
 LOCAL_LJ="$(find "$PWD/.tools/luajit" -type f -path '*/bin/luajit*' 2>/dev/null | head -n1 || true)"
 LOCAL_LIBDIR="$(find "$PWD/.tools/luajit" -type f -name 'libluajit-5.1.so.2*' -printf '%h\n' 2>/dev/null | head -n1 || true)"
@@ -40,7 +42,7 @@ fi
 
 echo "[2/4] Lua syntax"
 if [[ -n "$LUA_BIN" ]]; then
-  for f in _meta.lua main.lua compat.lua state.lua storage.lua model.lua libraryrepo.lua indexer.lua scanplan.lua scanner.lua libraryxdebug.lua libraryxi18n.lua debugui.lua coverbridge.lua safecardbridge.lua alreaderbooklist.lua alreadercatalogmenu.lua libraryui.lua libraryxbookdetails.lua tests/test_state.lua tests/test_model.lua tests/test_scanplan.lua tests/test_scanner.lua tests/test_no_rows_api.lua tests/test_debug_build_static.lua tests/test_device_bugfix_static.lua tests/test_metadata_policy_static.lua tests/test_incremental_checkpoint_static.lua tests/test_alreader_ui_static.lua tests/test_added_at_static.lua tests/test_alreader_root_filters_static.lua tests/test_author_series_crashguard_static.lua tests/test_series_callback_guard_static.lua tests/test_series_sorting_static.lua tests/test_safe_card_bridge_static.lua tests/test_book_details_static.lua tests/test_footer_scale_static.lua tests/test_visual_consistency_static.lua tests/test_catalog_reference_static.lua tests/test_footer_alphabet_title_static.lua tests/test_footer_more_runtime_static.lua tests/test_footer_hitbox_static.lua tests/test_density_scaling_static.lua tests/test_adaptive_cards_static.lua tests/test_background_index_scaling_static.lua tests/test_series_safe_renderer_static.lua tests/test_favorites_static.lua tests/test_start_with_static.lua tests/test_i18n_static.lua; do
+  for f in _meta.lua main.lua compat.lua state.lua storage.lua model.lua libraryrepo.lua indexer.lua scanplan.lua scanner.lua libraryxdebug.lua libraryxi18n.lua libraryxsettings.lua libraryxsettingsui.lua debugui.lua coverbridge.lua safecardbridge.lua alreaderbooklist.lua alreadercatalogmenu.lua libraryui.lua libraryxbookdetails.lua tests/test_state.lua tests/test_model.lua tests/test_scanplan.lua tests/test_scanner.lua tests/test_no_rows_api.lua tests/test_debug_build_static.lua tests/test_device_bugfix_static.lua tests/test_metadata_policy_static.lua tests/test_incremental_checkpoint_static.lua tests/test_alreader_ui_static.lua tests/test_added_at_static.lua tests/test_alreader_root_filters_static.lua tests/test_author_series_crashguard_static.lua tests/test_series_callback_guard_static.lua tests/test_series_sorting_static.lua tests/test_safe_card_bridge_static.lua tests/test_book_details_static.lua tests/test_footer_scale_static.lua tests/test_visual_consistency_static.lua tests/test_catalog_reference_static.lua tests/test_footer_alphabet_title_static.lua tests/test_footer_more_runtime_static.lua tests/test_footer_hitbox_static.lua tests/test_density_scaling_static.lua tests/test_adaptive_cards_static.lua tests/test_background_index_scaling_static.lua tests/test_series_safe_renderer_static.lua tests/test_favorites_static.lua tests/test_start_with_static.lua tests/test_i18n_static.lua tests/test_settings_runtime.lua tests/test_settings_integration_static.lua; do
     "$LUA_BIN" -e "local chunk, err = loadfile([[$f]]) if not chunk then error(err) end"
     echo "syntax OK: $f"
   done
@@ -59,6 +61,8 @@ if [[ -n "$LUA_BIN" ]]; then
   "$LUA_BIN" tests/test_adaptive_cards_static.lua
   "$LUA_BIN" tests/test_background_index_scaling_static.lua
   "$LUA_BIN" tests/test_i18n_static.lua
+  "$LUA_BIN" tests/test_settings_runtime.lua
+  "$LUA_BIN" tests/test_settings_integration_static.lua
 else
   echo "SKIP: no Lua runtime available"
 fi

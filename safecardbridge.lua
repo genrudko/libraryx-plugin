@@ -4,6 +4,7 @@ local Screen = require("device").screen
 local UIManager = require("ui/uimanager")
 local util = require("util")
 local Debug = require("libraryxdebug")
+local Settings = require("libraryxsettings")
 local SafeCardBridge = {}
 
 
@@ -21,7 +22,8 @@ end
 
 local function withAdaptiveFonts(menu, callback)
     local density = SafeCardBridge.adaptiveProfile(menu.item_height)
-    if density >= 0.999 then
+        * (Settings.fontScale() / 100)
+    if math.abs(density - 1) < 0.001 then
         return callback()
     end
 
@@ -119,7 +121,7 @@ local function safeManager(real, display_meta, menu)
 
     function adapter:getSetting(key)
         if key == "series_mode" then return nil end
-        if key == "hide_file_info" then return false end
+        if key == "hide_file_info" then return not Settings.showFileInfo() end
         if key == "hide_page_info" then return false end
         if key == "no_hint_description" then return true end
         if key == "fixed_item_font_size" then return true end
@@ -271,15 +273,30 @@ function SafeCardBridge.patch(menu, display_meta)
 
     local original_recalculate = modules.ListMenu._recalculateDimen
     menu._recalculateDimen = function(self)
+        local auto_density = self.libraryx_density_auto == true
         local target_rows = tonumber(self.libraryx_target_rows)
             or tonumber(self.libraryx_files_per_page)
-            or tonumber(G_reader_settings:readSetting("libraryx_cards_per_page"))
-            or 4
+            or Settings.listDensity()
 
-        -- Keep pagination stable at the selected target density.  Only the
-        -- current page's visual row height adapts when that page is short.
-        self.files_per_page = target_rows
+        -- In auto mode, let upstream CoverBrowser derive the target row count
+        -- from the real viewport. Manual 3..10 values remain hard overrides.
+        if auto_density then
+            self.files_per_page = nil
+        else
+            self.files_per_page = target_rows or 4
+        end
         local result = original_recalculate(self)
+        if auto_density then
+            local derived_rows = tonumber(self.files_per_page) or 4
+            target_rows = math.max(3, math.min(10, derived_rows))
+            if target_rows ~= derived_rows then
+                self.files_per_page = target_rows
+                result = original_recalculate(self)
+            end
+            self.libraryx_target_rows = target_rows
+        else
+            target_rows = target_rows or 4
+        end
 
         local item_count = #(self.item_table or {})
         local page = math.max(1, tonumber(self.page) or 1)
@@ -309,11 +326,19 @@ function SafeCardBridge.patch(menu, display_meta)
     end
 
     menu.display_mode_type = "list"
-    menu.libraryx_target_rows = tonumber(menu.libraryx_files_per_page)
-        or tonumber(menu.files_per_page)
-        or tonumber(G_reader_settings:readSetting("libraryx_cards_per_page"))
-        or 4
-    menu.files_per_page = menu.libraryx_target_rows
+    if menu.libraryx_density_auto == nil then
+        menu.libraryx_density_auto = Settings.isAutoDensity()
+    end
+    if menu.libraryx_density_auto then
+        menu.libraryx_target_rows = nil
+        menu.files_per_page = nil
+    else
+        menu.libraryx_target_rows = tonumber(menu.libraryx_files_per_page)
+            or tonumber(menu.libraryx_target_rows)
+            or Settings.listDensity()
+            or 4
+        menu.files_per_page = menu.libraryx_target_rows
+    end
 
     -- Real covers are handled by KOReader's own BookInfoManager cache and
     -- forked background extractor. The explicit adapter above keeps LibraryX

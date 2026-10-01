@@ -139,6 +139,30 @@ local strings = {
         list_settings = "List settings",
         menu_unavailable = "Menu is unavailable",
         books_per_screen = "%d books",
+        settings = "Settings",
+        settings_book_list = "Book list",
+        settings_book_details = "Book preview",
+        settings_language = "Interface language",
+        language_system = "As in KOReader",
+        language_russian = "Russian",
+        language_english = "English",
+        language_applies_next_open = "Language will apply when LibraryX is reopened.",
+        list_density = "List density",
+        density_auto = "Automatic",
+        list_font_scale = "List font size",
+        show_genres = "Show genres",
+        show_language = "Show language",
+        show_series_index = "Show series number",
+        show_file_info = "Show format and file size",
+        details_body_scale = "Preview text size",
+        details_title_scale = "Preview title size",
+        details_cover_scale = "Preview cover size",
+        show_metadata = "Show metadata",
+        show_path = "Show file path",
+        reset_settings = "Reset LibraryX settings",
+        reset_settings_confirm = "Reset LibraryX interface settings to defaults?",
+        reset = "Reset",
+        settings_reset_done = "LibraryX settings reset.",
     },
     ru = {
         libraryx = "LibraryX",
@@ -278,10 +302,42 @@ local strings = {
         list_settings = "Настройки списка",
         menu_unavailable = "Меню недоступно",
         books_per_screen = "%d книг",
+        settings = "Настройки",
+        settings_book_list = "Список книг",
+        settings_book_details = "Превью книги",
+        settings_language = "Язык интерфейса",
+        language_system = "Как в KOReader",
+        language_russian = "Русский",
+        language_english = "English",
+        language_applies_next_open = "Язык применится при следующем открытии LibraryX.",
+        list_density = "Плотность списка",
+        density_auto = "Автоматически",
+        list_font_scale = "Размер шрифта списка",
+        show_genres = "Показывать жанры",
+        show_language = "Показывать язык",
+        show_series_index = "Показывать номер в серии",
+        show_file_info = "Показывать формат и размер файла",
+        details_body_scale = "Размер текста превью",
+        details_title_scale = "Размер заголовка превью",
+        details_cover_scale = "Размер обложки превью",
+        show_metadata = "Показывать метаданные",
+        show_path = "Показывать путь к файлу",
+        reset_settings = "Сбросить настройки LibraryX",
+        reset_settings_confirm = "Сбросить настройки интерфейса LibraryX по умолчанию?",
+        reset = "Сбросить",
+        settings_reset_done = "Настройки LibraryX сброшены.",
     },
 }
 
 local function language()
+    local override = G_reader_settings
+        and G_reader_settings:readSetting("libraryx_language")
+        or "system"
+    override = tostring(override or "system"):lower()
+    if override == "ru" or override == "en" then
+        return override
+    end
+
     local lang = G_reader_settings and G_reader_settings:readSetting("language") or "en"
     lang = tostring(lang or "en"):lower()
     if lang:sub(1, 2) == "ru" then return "ru" end

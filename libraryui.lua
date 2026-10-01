@@ -14,6 +14,7 @@ local AlReaderBookList = require("alreaderbooklist")
 local AlReaderCatalogMenu = require("alreadercatalogmenu")
 local Debug = require("libraryxdebug")
 local L = require("libraryxi18n").t
+local Settings = require("libraryxsettings")
 
 local LibraryUI = {}
 LibraryUI.__index = LibraryUI
@@ -221,13 +222,13 @@ function LibraryUI:toBookListItems(books, opts)
             or L("unknown_author")
 
         local context = {}
-        if opts.series_context and b.series_index then
+        if opts.series_context and b.series_index and Settings.showSeriesIndex() then
             context[#context + 1] = "#" .. tostring(b.series_index)
         end
-        if b.language and b.language ~= "" then
+        if b.language and b.language ~= "" and Settings.showLanguage() then
             context[#context + 1] = b.language:upper()
         end
-        local genres = sanitizeCardGenres(b.genres)
+        local genres = Settings.showGenres() and sanitizeCardGenres(b.genres) or ""
         -- Keep card context deterministic and compact. FB2/EPUB keywords are
         -- often free-form and may contain dates or other cataloging noise, so
         -- only sanitized values are rendered in the visible card.
@@ -251,7 +252,8 @@ function LibraryUI:toBookListItems(books, opts)
                 modification = b.filemtime or 0,
                 access = b.last_read_at or 0,
             },
-            mandatory = b.filesize and util.getFriendlySize(b.filesize) or "",
+            mandatory = Settings.showFileInfo() and b.filesize
+                and util.getFriendlySize(b.filesize) or "",
             libraryx_book = b,
             libraryx_search_text = self:bookSearchText(b),
             callback = function() end,
