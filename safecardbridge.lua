@@ -1,6 +1,7 @@
 local Font = require("ui/font")
 local Size = require("ui/size")
 local Screen = require("device").screen
+local UIManager = require("ui/uimanager")
 local util = require("util")
 local Debug = require("libraryxdebug")
 local SafeCardBridge = {}
@@ -10,11 +11,35 @@ function SafeCardBridge.adaptiveProfile(row_height)
     -- Typography follows the actual row geometry, not a hard-coded density
     -- number.  This keeps one font scale for the whole page while allowing
     -- short lists to expand and use the otherwise empty viewport.
-    local screen_h = math.max(1, require("device").screen:getHeight())
+    local screen_h = math.max(1, Screen:getHeight())
     local ratio = math.max(0, (tonumber(row_height) or 0) / screen_h)
     if ratio >= 0.16 then return 1.00 end
     if ratio <= 0.08 then return 0.63 end
     return 0.63 + (ratio - 0.08) * (0.37 / 0.08)
+end
+
+
+local function withAdaptiveFonts(menu, callback)
+    local density = SafeCardBridge.adaptiveProfile(menu.item_height)
+    if density >= 0.999 then
+        return callback()
+    end
+
+    local original_get_face = Font.getFace
+    Font.getFace = function(font_self, name, size, ...)
+        if type(size) == "number" and (name == "cfont" or name == "infont") then
+            size = math.max(9, math.floor(size * density + 0.5))
+        end
+        return original_get_face(font_self, name, size, ...)
+    end
+
+    local result
+    local ok, err = xpcall(function()
+        result = callback()
+    end, debug.traceback)
+    Font.getFace = original_get_face
+    if not ok then error(err) end
+    return result
 end
 
 
@@ -221,7 +246,26 @@ function SafeCardBridge.patch(menu, display_meta)
     local modules, err = loadModules(display_meta, menu)
     if not modules then return nil, err end
 
-    menu.updateItems = modules.CoverMenu.updateItems
+    local original_update = modules.CoverMenu.updateItems
+    menu.updateItems = function(self, select_number, no_recalculate_dimen)
+        local result = original_update(self, select_number, no_recalculate_dimen)
+
+        -- CoverBrowser refreshes newly indexed rows later via item:update().
+        -- Those callbacks bypass _updateItemsBuildUI(), so without wrapping
+        -- them they use upstream font sizes until the next page/re-entry.
+        local original_action = self.items_update_action
+        if original_action and #(self.items_to_update or {}) > 0 then
+            UIManager:unschedule(original_action)
+            local wrapped_action
+            wrapped_action = function()
+                return withAdaptiveFonts(self, original_action)
+            end
+            self.items_update_action = wrapped_action
+            UIManager:scheduleIn(1, wrapped_action)
+        end
+
+        return result
+    end
     menu.onCloseWidget = modules.CoverMenu.onCloseWidget
     menu._recalculateDimen = modules.ListMenu._recalculateDimen
 
@@ -256,22 +300,12 @@ function SafeCardBridge.patch(menu, display_meta)
 
     local original_build = modules.ListMenu._updateItemsBuildUI
     menu._updateItemsBuildUI = function(self)
-        local density = SafeCardBridge.adaptiveProfile(self.item_height)
-        if density >= 0.999 then return original_build(self) end
-
         -- Upstream already derives type from row height, but its generous
         -- maximums make dense PW5 rows look nearly as large as sparse ones.
         -- Apply one geometry-derived multiplier to the complete page.
-        local original_get_face = Font.getFace
-        Font.getFace = function(font_self, name, size, ...)
-            if type(size) == "number" and (name == "cfont" or name == "infont") then
-                size = math.max(9, math.floor(size * density + 0.5))
-            end
-            return original_get_face(font_self, name, size, ...)
-        end
-        local ok, build_err = xpcall(function() original_build(self) end, debug.traceback)
-        Font.getFace = original_get_face
-        if not ok then error(build_err) end
+        return withAdaptiveFonts(self, function()
+            return original_build(self)
+        end)
     end
 
     menu.display_mode_type = "list"
